@@ -1,21 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { format, addDays, subDays, isToday } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const HOURS = Array.from({ length: 9 }, (_, i) => i + 9); // 9 to 17
+const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0 to 23
 
 function getEventStyle(event, allEvents) {
   const start = new Date(event.start.dateTime || event.start.date);
   const end = new Date(event.end.dateTime || event.end.date);
   const startHour = start.getHours() + start.getMinutes() / 60;
   const endHour = end.getHours() + end.getMinutes() / 60;
-  const clampedStart = Math.max(startHour, 9);
-  const clampedEnd = Math.min(endHour, 17);
-  const top = ((clampedStart - 9) / 8) * 100;
-  const height = ((clampedEnd - clampedStart) / 8) * 100;
+  const clampedStart = Math.max(startHour, 0);
+  const clampedEnd = Math.min(endHour, 24);
+  const top = ((clampedStart) / 24) * 100;
+  const height = ((clampedEnd - clampedStart) / 24) * 100;
   return { top: `${top}%`, height: `${Math.max(height, 1.5)}%` };
 }
 
@@ -57,13 +57,14 @@ export default function CalendarPanel() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const scrollRef = useRef(null);
 
   const fetchEvents = useCallback(async (d) => {
     setLoading(true);
     setError(null);
     try {
       const dateStr = format(d, 'yyyy-MM-dd');
-      const res = await base44.functions.invoke('fetchCalendar', { date: dateStr });
+      const res = await base44.functions.invoke('calendarFetch', { date: dateStr });
       setEvents(res.data.events || []);
     } catch (err) {
       setError(err.message);
@@ -76,11 +77,21 @@ export default function CalendarPanel() {
     fetchEvents(date);
   }, [date, fetchEvents]);
 
+  // Auto-scroll to current time
+  useEffect(() => {
+    if (scrollRef.current && isToday(date)) {
+      const now = new Date();
+      const percent = (now.getHours() + now.getMinutes() / 60) / 24;
+      const scrollPos = scrollRef.current.scrollHeight * percent - scrollRef.current.clientHeight / 2;
+      scrollRef.current.scrollTop = Math.max(0, scrollPos);
+    }
+  }, [date, loading]);
+
   const goToDay = (d) => setDate(d);
 
   const now = new Date();
   const currentTimePercent = isToday(date)
-    ? ((now.getHours() + now.getMinutes() / 60 - 9) / 8) * 100
+    ? ((now.getHours() + now.getMinutes() / 60) / 24) * 100
     : null;
 
   return (
@@ -119,23 +130,23 @@ export default function CalendarPanel() {
       </div>
 
       {/* Time grid */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-4">
         {error ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2">
             <p className="text-sm text-destructive">{error}</p>
             <Button size="sm" variant="outline" onClick={() => fetchEvents(date)}>Retry</Button>
           </div>
         ) : (
-          <div className="relative" style={{ height: '480px' }}>
+          <div className="relative" style={{ height: '1152px' }}>
             {/* Hour lines */}
             {HOURS.map((hour) => (
               <div
                 key={hour}
                 className="absolute w-full flex items-start"
-                style={{ top: `${((hour - 9) / 8) * 100}%` }}
+                style={{ top: `${(hour / 24) * 100}%` }}
               >
                 <span className="text-[10px] text-muted-foreground w-9 shrink-0 -mt-2 select-none">
-                  {hour === 12 ? '12 PM' : hour < 12 ? `${hour} AM` : `${hour - 12} PM`}
+                  {hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour < 12 ? `${hour} AM` : `${hour - 12} PM`}
                 </span>
                 <div className="flex-1 border-t border-border/60 mt-0" />
               </div>
