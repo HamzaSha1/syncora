@@ -1,0 +1,22 @@
+{
+  "name": "Todo",
+  "type": "object",
+  "properties": {
+    "text": {
+      "type": "string",
+      "description": "The todo item text"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the todo is completed"
+    },
+    "order": {
+      "type": "number",
+      "description": "Sort order"
+    }
+  },
+  "required": [
+    "text"
+  ]
+}

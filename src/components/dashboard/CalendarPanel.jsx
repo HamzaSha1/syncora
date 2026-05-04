@@ -1,0 +1,183 @@
+import { useState, useEffect, useCallback } from 'react';
+import { base44 } from '@/api/base44Client';
+import { format, addDays, subDays, isToday } from 'date-fns';
+import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const HOURS = Array.from({ length: 9 }, (_, i) => i + 9); // 9 to 17
+
+function getEventStyle(event, allEvents) {
+  const start = new Date(event.start.dateTime || event.start.date);
+  const end = new Date(event.end.dateTime || event.end.date);
+  const startHour = start.getHours() + start.getMinutes() / 60;
+  const endHour = end.getHours() + end.getMinutes() / 60;
+  const clampedStart = Math.max(startHour, 9);
+  const clampedEnd = Math.min(endHour, 17);
+  const top = ((clampedStart - 9) / 8) * 100;
+  const height = ((clampedEnd - clampedStart) / 8) * 100;
+  return { top: `${top}%`, height: `${Math.max(height, 1.5)}%` };
+}
+
+function EventBlock({ event }) {
+  const start = new Date(event.start.dateTime || event.start.date);
+  const end = new Date(event.end.dateTime || event.end.date);
+  const style = getEventStyle(event);
+  const duration = (end - start) / 60000;
+  const isShort = duration <= 30;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -4 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="absolute left-0 right-0 mx-1 rounded-md bg-primary/90 text-primary-foreground px-2 py-1 overflow-hidden cursor-default group hover:bg-primary transition-colors shadow-sm"
+      style={style}
+      title={event.subject}
+    >
+      <p className={`font-medium leading-tight truncate ${isShort ? 'text-[10px]' : 'text-xs'}`}>
+        {event.subject}
+      </p>
+      {!isShort && (
+        <p className="text-[10px] opacity-80 truncate">
+          {format(start, 'h:mm a')} – {format(end, 'h:mm a')}
+        </p>
+      )}
+      {event.location?.displayName && !isShort && (
+        <p className="text-[10px] opacity-70 truncate flex items-center gap-0.5 mt-0.5">
+          <MapPin className="w-2.5 h-2.5" />
+          {event.location.displayName}
+        </p>
+      )}
+    </motion.div>
+  );
+}
+
+export default function CalendarPanel() {
+  const [date, setDate] = useState(new Date());
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchEvents = useCallback(async (d) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const res = await base44.functions.invoke('getOutlookCalendar', { date: dateStr });
+      setEvents(res.data.events || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEvents(date);
+  }, [date, fetchEvents]);
+
+  const goToDay = (d) => setDate(d);
+
+  const now = new Date();
+  const currentTimePercent = isToday(date)
+    ? ((now.getHours() + now.getMinutes() / 60 - 9) / 8) * 100
+    : null;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-primary" />
+          <h2 className="font-semibold text-sm text-foreground">Calendar</h2>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => goToDay(subDays(date, 1))}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <button
+            className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+              isToday(date) ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => goToDay(new Date())}
+          >
+            {isToday(date) ? 'Today' : format(date, 'MMM d')}
+          </button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => goToDay(addDays(date, 1))}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 ml-1" onClick={() => fetchEvents(date)}>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+      </div>
+
+      <div className="px-4 pt-1 pb-1 shrink-0">
+        <p className="text-xs font-medium text-muted-foreground">
+          {format(date, 'EEEE, MMMM d, yyyy')}
+        </p>
+      </div>
+
+      {/* Time grid */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        {error ? (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+            <p className="text-sm text-destructive">{error}</p>
+            <Button size="sm" variant="outline" onClick={() => fetchEvents(date)}>Retry</Button>
+          </div>
+        ) : (
+          <div className="relative" style={{ height: '480px' }}>
+            {/* Hour lines */}
+            {HOURS.map((hour) => (
+              <div
+                key={hour}
+                className="absolute w-full flex items-start"
+                style={{ top: `${((hour - 9) / 8) * 100}%` }}
+              >
+                <span className="text-[10px] text-muted-foreground w-9 shrink-0 -mt-2 select-none">
+                  {hour === 12 ? '12 PM' : hour < 12 ? `${hour} AM` : `${hour - 12} PM`}
+                </span>
+                <div className="flex-1 border-t border-border/60 mt-0" />
+              </div>
+            ))}
+
+            {/* Events area */}
+            <div className="absolute left-9 right-0 top-0 bottom-0">
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : (
+                <AnimatePresence>
+                  {events.map((event) => (
+                    <EventBlock key={event.id} event={event} allEvents={events} />
+                  ))}
+                  {events.length === 0 && !loading && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex items-center justify-center h-full"
+                    >
+                      <p className="text-xs text-muted-foreground">No events today</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              )}
+
+              {/* Current time indicator */}
+              {currentTimePercent !== null && currentTimePercent >= 0 && currentTimePercent <= 100 && (
+                <div
+                  className="absolute left-0 right-0 flex items-center pointer-events-none z-10"
+                  style={{ top: `${currentTimePercent}%` }}
+                >
+                  <div className="w-2 h-2 rounded-full bg-destructive shrink-0" />
+                  <div className="flex-1 h-px bg-destructive" />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
