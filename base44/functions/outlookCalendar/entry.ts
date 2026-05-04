@@ -13,8 +13,9 @@ Deno.serve(async (req) => {
 
     const { accessToken } = await base44.asServiceRole.connectors.getConnection('outlook');
 
-    const startDateTime = `${date}T06:00:00Z`; // 9am Bahrain = 6am UTC
-    const endDateTime = `${date}T14:00:00Z`;   // 5pm Bahrain = 2pm UTC
+    // Bahrain is UTC+3, so 9am-5pm local = 6am-2pm UTC
+    const startDateTime = `${date}T06:00:00Z`;
+    const endDateTime = `${date}T14:00:00Z`;
 
     const params = new URLSearchParams({
       startDateTime,
