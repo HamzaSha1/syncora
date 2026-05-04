@@ -9,17 +9,11 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let date;
+    let date = new Date().toISOString().split('T')[0];
     try {
       const body = await req.json();
-      date = body.date;
-    } catch (_) {
-      date = null;
-    }
-
-    if (!date) {
-      date = new Date().toISOString().split('T')[0];
-    }
+      if (body.date) date = body.date;
+    } catch (_) {}
 
     const { accessToken } = await base44.asServiceRole.connectors.getConnection('outlook');
 
@@ -29,10 +23,7 @@ Deno.serve(async (req) => {
     const url = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${encodeURIComponent(startDateTime)}&endDateTime=${encodeURIComponent(endDateTime)}&$orderby=start/dateTime&$select=id,subject,start,end,location,isAllDay&$top=50`;
 
     const res = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${accessToken}` },
     });
 
     const text = await res.text();
