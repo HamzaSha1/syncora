@@ -1,19 +1,10 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-async function graphRequest(accessToken, path) {
-  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
-    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Graph API error: ${res.status} ${text}`);
-  }
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
-}
-
 Deno.serve(async (req) => {
   try {
+    const body = await req.json().catch(() => ({}));
+    const date = body.date || new Date().toISOString().split('T')[0];
+
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) {
@@ -22,15 +13,8 @@ Deno.serve(async (req) => {
 
     const { accessToken } = await base44.asServiceRole.connectors.getConnection('outlook');
 
-    let date = new Date().toISOString().split('T')[0];
-    try {
-      const body = await req.json();
-      if (body.date) date = body.date;
-    } catch (_) {}
-
-    // Use full day with timezone offset for Bahrain (UTC+3)
-    const startDateTime = `${date}T09:00:00`;
-    const endDateTime = `${date}T17:00:00`;
+    const startDateTime = `${date}T06:00:00Z`; // 9am Bahrain = 6am UTC
+    const endDateTime = `${date}T14:00:00Z`;   // 5pm Bahrain = 2pm UTC
 
     const params = new URLSearchParams({
       startDateTime,
@@ -40,8 +24,16 @@ Deno.serve(async (req) => {
       '$top': '50',
     });
 
-    const data = await graphRequest(accessToken, `/me/calendarView?${params.toString()}`);
+    const res = await fetch(`https://graph.microsoft.com/v1.0/me/calendarView?${params.toString()}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
 
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Graph API error: ${res.status} ${text}`);
+    }
+
+    const data = await res.json();
     return Response.json({ events: data?.value || [] });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
