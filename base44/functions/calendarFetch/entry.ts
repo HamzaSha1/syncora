@@ -14,7 +14,6 @@ Deno.serve(async (req) => {
 
     const { accessToken } = await base44.asServiceRole.connectors.getConnection('outlook');
 
-    // Full 24-hour range
     const startDateTime = `${date}T00:00:00Z`;
     const endDateTime = `${date}T23:59:59Z`;
 
