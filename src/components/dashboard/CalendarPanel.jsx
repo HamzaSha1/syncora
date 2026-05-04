@@ -63,7 +63,7 @@ export default function CalendarPanel() {
     setError(null);
     try {
       const dateStr = format(d, 'yyyy-MM-dd');
-      const res = await base44.functions.invoke('outlookCalendar', { date: dateStr });
+      const res = await base44.functions.invoke('fetchCalendar', { date: dateStr });
       setEvents(res.data.events || []);
     } catch (err) {
       setError(err.message);
