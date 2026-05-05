@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
 
     // If pageId provided, return the page content (bulleted items)
     if (body.pageId) {
-      const res2 = await fetch(`https://graph.microsoft.com/v1.0/me/onenote/pages/${body.pageId}/content`, {
+      const res2 = await fetch(`https://graph.microsoft.com/v1.0/me/onenote/pages/${body.pageId}/content?includeIDs=true`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       if (!res2.ok) throw new Error(`Graph API error: ${res2.status}`);
@@ -30,18 +30,20 @@ Deno.serve(async (req) => {
       const items = [];
       let match;
 
-      // Extract checklist items: <p data-tag="to-do..."> or <p data-tag="to-do">
-      const checklistRegex = /<p[^>]*data-tag="to-do[^"]*"[^>]*>([\s\S]*?)<\/p>/gi;
+      // Extract checklist items with element IDs and completion state
+      const checklistRegex = /<p[^>]*data-tag="(to-do[^"]*)"[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/p>/gi;
       while ((match = checklistRegex.exec(html)) !== null) {
-        const text = match[1].replace(/<[^>]+>/g, '').trim();
-        if (text) items.push(text);
+        const tag = match[1];
+        const elementId = match[2];
+        const text = match[3].replace(/<[^>]+>/g, '').trim();
+        if (text) items.push({ text, elementId, completed: tag.includes('completed') });
       }
 
-      // Also extract <li> bullet items
+      // Also extract <li> bullet items (no element ID)
       const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
       while ((match = liRegex.exec(html)) !== null) {
         const text = match[1].replace(/<[^>]+>/g, '').trim();
-        if (text) items.push(text);
+        if (text) items.push({ text, elementId: null, completed: false });
       }
 
       return Response.json({ items });

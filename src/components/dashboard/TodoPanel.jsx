@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +9,8 @@ export default function TodoPanel() {
   const [todos, setTodos] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // OneNote state
   const [pages, setPages] = useState([]);
@@ -16,33 +18,96 @@ export default function TodoPanel() {
   const [selectedPageTitle, setSelectedPageTitle] = useState(() => localStorage.getItem('todo_onenote_page_title') || null);
   const [showPicker, setShowPicker] = useState(false);
   const [pagesLoading, setPagesLoading] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const syncIntervalRef = useRef(null);
 
   // Load local todos
   useEffect(() => {
-    base44.entities.Todo.list('order', 100).then((data) => {
+    base44.entities.Todo.list('order', 200).then((data) => {
       setTodos(data);
       setLoading(false);
     });
   }, []);
+
+  // Auto-sync from OneNote every 60s when a page is linked
+  useEffect(() => {
+    if (selectedPageId) {
+      syncFromOneNote(selectedPageId);
+      syncIntervalRef.current = setInterval(() => syncFromOneNote(selectedPageId), 60000);
+    }
+    return () => clearInterval(syncIntervalRef.current);
+  }, [selectedPageId]);
+
+  // Sync from OneNote → app: update completion state of existing todos
+  const syncFromOneNote = async (pageId, silent = true) => {
+    if (!silent) setSyncing(true);
+    try {
+      const res = await base44.functions.invoke('syncOneNoteItems', { pageId });
+      const oneNoteItems = res.data.items || [];
+      if (oneNoteItems.length === 0) return;
+
+      // Get current todos from DB
+      const currentTodos = await base44.entities.Todo.list('order', 200);
+      const updates = [];
+
+      for (const onItem of oneNoteItems) {
+        const match = currentTodos.find((t) => t.onenote_element_id === onItem.elementId);
+        if (match && match.completed !== onItem.completed) {
+          updates.push(base44.entities.Todo.update(match.id, { completed: onItem.completed }));
+        }
+      }
+
+      if (updates.length > 0) {
+        await Promise.all(updates);
+        // Refresh local state
+        const fresh = await base44.entities.Todo.list('order', 200);
+        setTodos(fresh);
+      }
+    } catch (err) {
+      console.error('Sync error:', err);
+    } finally {
+      if (!silent) setSyncing(false);
+    }
+  };
 
   const importFromOneNote = async (pageId) => {
     setImporting(true);
     try {
       const res = await base44.functions.invoke('getOneNotePages', { pageId });
       const items = res.data.items || [];
-      // Get existing todo texts to avoid duplicates
+
       const existing = await base44.entities.Todo.list('order', 200);
       const existingTexts = new Set(existing.map((t) => t.text.trim().toLowerCase()));
-      const newItems = items.filter((item) => !existingTexts.has(item.trim().toLowerCase()));
+      const newItems = items.filter((item) => !existingTexts.has(item.text.trim().toLowerCase()));
+
       if (newItems.length > 0) {
         const maxOrder = existing.length;
         const created = await Promise.all(
-          newItems.map((text, i) =>
-            base44.entities.Todo.create({ text, completed: false, order: maxOrder + i })
+          newItems.map((item, i) =>
+            base44.entities.Todo.create({
+              text: item.text,
+              completed: item.completed,
+              order: maxOrder + i,
+              onenote_element_id: item.elementId,
+              onenote_page_id: pageId,
+            })
           )
         );
         setTodos((prev) => [...prev, ...created]);
+      }
+
+      // Also update completion state of already-imported items
+      const updates = [];
+      for (const item of items) {
+        if (!item.elementId) continue;
+        const match = existing.find((t) => t.onenote_element_id === item.elementId);
+        if (match && match.completed !== item.completed) {
+          updates.push(base44.entities.Todo.update(match.id, { completed: item.completed }));
+        }
+      }
+      if (updates.length > 0) {
+        await Promise.all(updates);
+        const fresh = await base44.entities.Todo.list('order', 200);
+        setTodos(fresh);
       }
     } catch (err) {
       console.error(err);
@@ -76,6 +141,7 @@ export default function TodoPanel() {
   const clearPage = () => {
     setSelectedPageId(null);
     setSelectedPageTitle(null);
+    clearInterval(syncIntervalRef.current);
     localStorage.removeItem('todo_onenote_page');
     localStorage.removeItem('todo_onenote_page_title');
   };
@@ -93,8 +159,19 @@ export default function TodoPanel() {
   };
 
   const toggleTodo = async (todo) => {
-    const updated = await base44.entities.Todo.update(todo.id, { completed: !todo.completed });
-    setTodos((prev) => prev.map((t) => (t.id === todo.id ? updated : t)));
+    const newCompleted = !todo.completed;
+    // Optimistic update
+    setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, completed: newCompleted } : t)));
+    await base44.entities.Todo.update(todo.id, { completed: newCompleted });
+
+    // Sync to OneNote if this todo has an element ID
+    if (todo.onenote_element_id && todo.onenote_page_id) {
+      base44.functions.invoke('updateOneNoteItem', {
+        pageId: todo.onenote_page_id,
+        elementId: todo.onenote_element_id,
+        completed: newCompleted,
+      }).catch(console.error);
+    }
   };
 
   const deleteTodo = async (id) => {
@@ -127,12 +204,12 @@ export default function TodoPanel() {
               {selectedPageTitle}
             </button>
             <button
-              onClick={() => importFromOneNote(selectedPageId)}
-              disabled={importing}
+              onClick={() => { setSyncing(true); syncFromOneNote(selectedPageId, false); importFromOneNote(selectedPageId); }}
+              disabled={syncing || importing}
               className="text-muted-foreground hover:text-foreground shrink-0"
-              title="Re-import from OneNote"
+              title="Sync with OneNote"
             >
-              <RefreshCw className={`w-3 h-3 ${importing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3 h-3 ${(syncing || importing) ? 'animate-spin' : ''}`} />
             </button>
             <button onClick={clearPage} className="text-muted-foreground hover:text-destructive shrink-0">
               <X className="w-3 h-3" />
@@ -244,6 +321,9 @@ function TodoItem({ todo, onToggle, onDelete }) {
       </button>
       <span className={`flex-1 text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
         {todo.text}
+        {todo.onenote_element_id && (
+          <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
+        )}
       </span>
       <button
         onClick={() => onDelete(todo.id)}

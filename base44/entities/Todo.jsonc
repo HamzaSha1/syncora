@@ -14,6 +14,14 @@
     "order": {
       "type": "number",
       "description": "Sort order"
+    },
+    "onenote_element_id": {
+      "type": "string",
+      "description": "The OneNote paragraph element ID for syncing checklist state"
+    },
+    "onenote_page_id": {
+      "type": "string",
+      "description": "The OneNote page ID this todo came from"
     }
   },
   "required": [
