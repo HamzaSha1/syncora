@@ -39,7 +39,7 @@ export default function TodoPanel() {
     return () => clearInterval(syncIntervalRef.current);
   }, [selectedPageId]);
 
-  // Sync from OneNote → app: update completion state of existing todos
+  // Sync from OneNote → app: update completion state AND add new items
   const syncFromOneNote = async (pageId, silent = true) => {
     if (!silent) setSyncing(true);
     try {
@@ -50,17 +50,31 @@ export default function TodoPanel() {
       // Get current todos from DB
       const currentTodos = await base44.entities.Todo.list('order', 200);
       const updates = [];
+      const creates = [];
 
       for (const onItem of oneNoteItems) {
         const match = currentTodos.find((t) => t.onenote_element_id === onItem.elementId);
-        if (match && match.completed !== onItem.completed) {
-          updates.push(base44.entities.Todo.update(match.id, { completed: onItem.completed }));
+        if (match) {
+          // Update completion state if changed
+          if (match.completed !== onItem.completed) {
+            updates.push(base44.entities.Todo.update(match.id, { completed: onItem.completed }));
+          }
+        } else {
+          // New item added in OneNote — create it locally
+          creates.push(
+            base44.entities.Todo.create({
+              text: onItem.text,
+              completed: onItem.completed,
+              order: currentTodos.length + creates.length,
+              onenote_element_id: onItem.elementId,
+              onenote_page_id: pageId,
+            })
+          );
         }
       }
 
-      if (updates.length > 0) {
-        await Promise.all(updates);
-        // Refresh local state
+      if (updates.length > 0 || creates.length > 0) {
+        await Promise.all([...updates, ...creates]);
         const fresh = await base44.entities.Todo.list('order', 200);
         setTodos(fresh);
       }
