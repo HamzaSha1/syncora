@@ -17,6 +17,7 @@ function toLocal(dateTimeStr, timeZone) {
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0 to 23
+const HALF_HOURS = Array.from({ length: 24 }, (_, i) => i + 0.5); // 0.5 to 23.5
 
 function getEventStyle(event, allEvents) {
   const start = toLocal(event.start.dateTime || event.start.date, event.start.timeZone);
@@ -160,6 +161,17 @@ export default function CalendarPanel() {
                   {hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour < 12 ? `${hour} AM` : `${hour - 12} PM`}
                 </span>
                 <div className="flex-1 border-t border-border/60 mt-0" />
+              </div>
+            ))}
+            {/* Half-hour lines */}
+            {HALF_HOURS.map((slot) => (
+              <div
+                key={slot}
+                className="absolute w-full flex items-start"
+                style={{ top: `${(slot / 24) * 100}%` }}
+              >
+                <span className="w-9 shrink-0" />
+                <div className="flex-1 border-t border-border/30 border-dashed mt-0" />
               </div>
             ))}
 
