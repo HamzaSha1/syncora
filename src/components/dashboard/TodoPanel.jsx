@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
-import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X } from 'lucide-react';
+import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import NotesTab from './NotesTab';
 
 export default function TodoPanel() {
+  const [activeTab, setActiveTab] = useState('todos');
   const [todos, setTodos] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -182,20 +184,52 @@ export default function TodoPanel() {
   const active = todos.filter((t) => !t.completed);
   const done = todos.filter((t) => t.completed);
 
+  if (activeTab === 'notes') {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex border-b border-border shrink-0">
+          <button
+            onClick={() => setActiveTab('todos')}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <CheckSquare className="w-3.5 h-3.5" /> Todos
+          </button>
+          <button
+            className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium text-foreground border-b-2 border-primary transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5" /> Notes
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <NotesTab />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
-        <CheckSquare className="w-4 h-4 text-primary" />
-        <h2 className="font-semibold text-sm text-foreground">Todos</h2>
-        {active.length > 0 && (
-          <span className="ml-auto text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
-            {active.length}
-          </span>
-        )}
+      {/* Tabs */}
+      <div className="flex border-b border-border shrink-0">
+        <button
+          className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium text-foreground border-b-2 border-primary transition-colors"
+        >
+          <CheckSquare className="w-3.5 h-3.5" /> Todos
+          {active.length > 0 && (
+            <span className="ml-0.5 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full leading-none">
+              {active.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('notes')}
+          className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <FileText className="w-3.5 h-3.5" /> Notes
+        </button>
       </div>
 
-      {/* OneNote selector */}
+      {/* OneNote todo-page selector */}
       <div className="px-4 py-2 border-b border-border shrink-0 flex items-center gap-2">
         <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
         {selectedPageTitle ? (
