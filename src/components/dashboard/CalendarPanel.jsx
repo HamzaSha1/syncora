@@ -1,15 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { format, addDays, subDays, isToday } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+function toLocal(dateTimeStr) {
+  return toZonedTime(new Date(dateTimeStr), USER_TZ);
+}
+
 const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0 to 23
 
 function getEventStyle(event, allEvents) {
-  const start = new Date(event.start.dateTime || event.start.date);
-  const end = new Date(event.end.dateTime || event.end.date);
+  const start = toLocal(event.start.dateTime || event.start.date);
+  const end = toLocal(event.end.dateTime || event.end.date);
   const startHour = start.getHours() + start.getMinutes() / 60;
   const endHour = end.getHours() + end.getMinutes() / 60;
   const clampedStart = Math.max(startHour, 0);
@@ -20,8 +27,8 @@ function getEventStyle(event, allEvents) {
 }
 
 function EventBlock({ event }) {
-  const start = new Date(event.start.dateTime || event.start.date);
-  const end = new Date(event.end.dateTime || event.end.date);
+  const start = toLocal(event.start.dateTime || event.start.date);
+  const end = toLocal(event.end.dateTime || event.end.date);
   const style = getEventStyle(event);
   const duration = (end - start) / 60000;
   const isShort = duration <= 30;
