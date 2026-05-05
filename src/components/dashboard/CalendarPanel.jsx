@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { format, addDays, subDays, isToday } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
 import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+// Graph API returns times in the requested timezone; parse as local by stripping any Z/offset
 function toLocal(dateTimeStr) {
-  return toZonedTime(new Date(dateTimeStr), USER_TZ);
+  if (!dateTimeStr) return new Date();
+  // Remove trailing Z or offset so Date() treats it as local
+  return new Date(dateTimeStr.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, ''));
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0 to 23
@@ -71,7 +73,7 @@ export default function CalendarPanel() {
     setError(null);
     try {
       const dateStr = format(d, 'yyyy-MM-dd');
-      const res = await base44.functions.invoke('getEvents', { date: dateStr });
+      const res = await base44.functions.invoke('getEvents', { date: dateStr, timezone: USER_TZ });
       setEvents(res.data.events || []);
     } catch (err) {
       setError(err.message);

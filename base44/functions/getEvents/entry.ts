@@ -7,16 +7,19 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     let date = new Date().toISOString().split('T')[0];
+    let timezone = 'Asia/Bahrain';
     try {
       const body = await req.json();
       if (body.date) date = body.date;
+      if (body.timezone) timezone = body.timezone;
     } catch (_) {}
 
     const { accessToken } = await base44.asServiceRole.connectors.getConnection('outlook');
 
-    const start = `${date}T00:00:00Z`;
-    const end = `${date}T23:59:59Z`;
-    const url = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${encodeURIComponent(start)}&endDateTime=${encodeURIComponent(end)}&$orderby=start/dateTime&$select=id,subject,start,end,location,isAllDay&$top=100`;
+    // Build start/end in the user's local timezone (midnight to midnight)
+    const start = `${date}T00:00:00`;
+    const end = `${date}T23:59:59`;
+    const url = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${encodeURIComponent(start)}&endDateTime=${encodeURIComponent(end)}&$orderby=start/dateTime&$select=id,subject,start,end,location,isAllDay&$top=100&$preferredTimezone=${encodeURIComponent(timezone)}`;
 
     const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${accessToken}` },
