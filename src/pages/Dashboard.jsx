@@ -1,6 +1,6 @@
 import CalendarPanel from '@/components/dashboard/CalendarPanel';
 import TodoPanel from '@/components/dashboard/TodoPanel';
-import NotesPanel from '@/components/dashboard/NotesPanel';
+import MonthlyCalendarPanel from '@/components/dashboard/MonthlyCalendarPanel';
 import { format } from 'date-fns';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 
@@ -45,7 +45,7 @@ export default function Dashboard() {
 
             <Panel defaultSize={55} minSize={20}>
               <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <NotesPanel />
+                <MonthlyCalendarPanel />
               </div>
             </Panel>
           </PanelGroup>
