@@ -17,22 +17,38 @@ Deno.serve(async (req) => {
     if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
     const html = await res.text();
 
-    // Parse checklist items with their element IDs and completion state
+    console.log('HTML snippet:', html.substring(0, 2000));
+
     const items = [];
-    const checklistRegex = /<p[^>]*data-tag="(to-do[^"]*)"[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/p>/gi;
+
+    // Match any <p> tag that has a data-tag containing "to-do" — attributes can be in any order
+    const pTagRegex = /<p([^>]*)>([\s\S]*?)<\/p>/gi;
     let match;
-    while ((match = checklistRegex.exec(html)) !== null) {
-      const tag = match[1];
-      const elementId = match[2];
-      const text = match[3].replace(/<[^>]+>/g, '').trim();
-      if (text) {
-        items.push({
-          elementId,
-          text,
-          completed: tag.includes('completed'),
-        });
-      }
+    while ((match = pTagRegex.exec(html)) !== null) {
+      const attrs = match[1];
+      const inner = match[2];
+
+      // Check for to-do data-tag (any attribute order)
+      const dataTagMatch = attrs.match(/data-tag="([^"]*)"/i);
+      if (!dataTagMatch) continue;
+      const tag = dataTagMatch[1];
+      if (!tag.includes('to-do')) continue;
+
+      // Extract element ID
+      const idMatch = attrs.match(/\bid="([^"]+)"/i);
+      const elementId = idMatch ? idMatch[1] : null;
+
+      const text = inner.replace(/<[^>]+>/g, '').trim();
+      if (!text) continue;
+
+      items.push({
+        elementId,
+        text,
+        completed: tag.includes('completed'),
+      });
     }
+
+    console.log('Parsed items:', items.length);
 
     return Response.json({ items });
   } catch (err) {

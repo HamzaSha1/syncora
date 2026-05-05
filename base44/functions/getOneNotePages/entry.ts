@@ -30,12 +30,18 @@ Deno.serve(async (req) => {
       const items = [];
       let match;
 
-      // Extract checklist items with element IDs and completion state
-      const checklistRegex = /<p[^>]*data-tag="(to-do[^"]*)"[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/p>/gi;
-      while ((match = checklistRegex.exec(html)) !== null) {
-        const tag = match[1];
-        const elementId = match[2];
-        const text = match[3].replace(/<[^>]+>/g, '').trim();
+      // Extract checklist items — attributes can be in any order
+      const pTagRegex = /<p([^>]*)>([\s\S]*?)<\/p>/gi;
+      while ((match = pTagRegex.exec(html)) !== null) {
+        const attrs = match[1];
+        const inner = match[2];
+        const dataTagMatch = attrs.match(/data-tag="([^"]*)"/i);
+        if (!dataTagMatch) continue;
+        const tag = dataTagMatch[1];
+        if (!tag.includes('to-do')) continue;
+        const idMatch = attrs.match(/\bid="([^"]+)"/i);
+        const elementId = idMatch ? idMatch[1] : null;
+        const text = inner.replace(/<[^>]+>/g, '').trim();
         if (text) items.push({ text, elementId, completed: tag.includes('completed') });
       }
 
