@@ -5,14 +5,11 @@ import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, RefreshCw } from 'l
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const USER_TZ = 'Asia/Bahrain';
+const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-// Convert UTC datetime string to Bahrain local time
 function toLocal(dateTimeStr) {
   if (!dateTimeStr) return new Date();
-  const utcDate = new Date(dateTimeStr.endsWith('Z') ? dateTimeStr : dateTimeStr + 'Z');
-  // Offset Asia/Bahrain is UTC+3 (no DST)
-  return new Date(utcDate.getTime() + 3 * 60 * 60 * 1000);
+  return new Date(dateTimeStr);
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0 to 23
