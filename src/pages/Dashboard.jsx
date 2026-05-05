@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import CalendarPanel from '@/components/dashboard/CalendarPanel';
 import TodoPanel from '@/components/dashboard/TodoPanel';
 import MonthlyCalendarPanel from '@/components/dashboard/MonthlyCalendarPanel';
@@ -13,6 +14,8 @@ function ResizeHandle({ direction = 'horizontal' }) {
 }
 
 export default function Dashboard() {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
   return (
     <div className="h-screen bg-background p-4 flex flex-col gap-2 overflow-hidden">
       {/* Top date bar */}
@@ -26,7 +29,7 @@ export default function Dashboard() {
         {/* Calendar panel */}
         <Panel defaultSize={50} minSize={20}>
           <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <CalendarPanel />
+            <CalendarPanel selectedDate={selectedDate} onDateChange={setSelectedDate} />
           </div>
         </Panel>
 
@@ -45,7 +48,7 @@ export default function Dashboard() {
 
             <Panel defaultSize={55} minSize={20}>
               <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <MonthlyCalendarPanel />
+                <MonthlyCalendarPanel selectedDate={selectedDate} onDateSelect={setSelectedDate} />
               </div>
             </Panel>
           </PanelGroup>

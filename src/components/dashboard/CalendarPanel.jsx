@@ -64,8 +64,8 @@ function EventBlock({ event }) {
   );
 }
 
-export default function CalendarPanel() {
-  const [date, setDate] = useState(new Date());
+export default function CalendarPanel({ selectedDate, onDateChange }) {
+  const [date, setDate] = useState(selectedDate || new Date());
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -99,7 +99,10 @@ export default function CalendarPanel() {
     }
   }, [date, loading]);
 
-  const goToDay = (d) => setDate(d);
+  const goToDay = (d) => { setDate(d); onDateChange?.(d); };
+
+  // Sync when parent changes selected date
+  useEffect(() => { if (selectedDate) setDate(selectedDate); }, [selectedDate]);
 
   const now = new Date();
   const currentTimePercent = isToday(date)

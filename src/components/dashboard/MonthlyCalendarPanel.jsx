@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isToday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -20,7 +20,7 @@ function buildCalendarDays(month) {
   return days;
 }
 
-export default function MonthlyCalendarPanel() {
+export default function MonthlyCalendarPanel({ selectedDate, onDateSelect }) {
   const [month, setMonth] = useState(new Date());
   const days = buildCalendarDays(month);
 
@@ -73,11 +73,13 @@ export default function MonthlyCalendarPanel() {
           const isOff = OFF_DAYS.has(dayOfWeek);
           const isCurrentMonth = isSameMonth(day, month);
           const isTodayDay = isToday(day);
+          const isSelected = selectedDate && isSameDay(day, selectedDate) && !isTodayDay;
 
           return (
             <div
               key={idx}
-              className={`border-r border-b border-border/40 p-1 flex flex-col ${
+              onClick={() => onDateSelect?.(day)}
+              className={`border-r border-b border-border/40 p-1 flex flex-col cursor-pointer hover:bg-accent/50 transition-colors ${
                 isOff ? 'bg-destructive/5' : ''
               } ${!isCurrentMonth ? 'opacity-35' : ''}`}
             >
@@ -85,6 +87,8 @@ export default function MonthlyCalendarPanel() {
                 className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${
                   isTodayDay
                     ? 'bg-primary text-primary-foreground'
+                    : isSelected
+                    ? 'bg-accent-foreground/15 ring-1 ring-primary text-primary'
                     : isOff
                     ? 'text-destructive/80'
                     : 'text-foreground'
