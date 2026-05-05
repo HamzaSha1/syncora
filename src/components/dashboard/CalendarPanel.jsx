@@ -164,16 +164,22 @@ export default function CalendarPanel() {
               </div>
             ))}
             {/* Half-hour lines */}
-            {HALF_HOURS.map((slot) => (
-              <div
-                key={slot}
-                className="absolute w-full flex items-start"
-                style={{ top: `${(slot / 24) * 100}%` }}
-              >
-                <span className="w-9 shrink-0" />
-                <div className="flex-1 border-t border-border/30 border-dashed mt-0" />
-              </div>
-            ))}
+            {HALF_HOURS.map((slot) => {
+              const h = Math.floor(slot);
+              const label = h === 0 ? '12:30 AM' : h === 12 ? '12:30 PM' : h < 12 ? `${h}:30 AM` : `${h - 12}:30 PM`;
+              return (
+                <div
+                  key={slot}
+                  className="absolute w-full flex items-start"
+                  style={{ top: `${(slot / 24) * 100}%` }}
+                >
+                  <span className="text-[9px] text-muted-foreground/50 w-9 shrink-0 -mt-1.5 select-none leading-none">
+                    {label}
+                  </span>
+                  <div className="flex-1 border-t border-border/30 border-dashed mt-0" />
+                </div>
+              );
+            })}
 
             {/* Events area */}
             <div className="absolute left-9 right-0 top-0 bottom-0">
