@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { CheckSquare, Plus, Trash2, Check } from 'lucide-react';
+import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +10,68 @@ export default function TodoPanel() {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // OneNote state
+  const [pages, setPages] = useState([]);
+  const [selectedPageId, setSelectedPageId] = useState(() => localStorage.getItem('todo_onenote_page') || null);
+  const [selectedPageTitle, setSelectedPageTitle] = useState(() => localStorage.getItem('todo_onenote_page_title') || null);
+  const [oneNoteItems, setOneNoteItems] = useState([]);
+  const [showPicker, setShowPicker] = useState(false);
+  const [oneNoteLoading, setOneNoteLoading] = useState(false);
+  const [pagesLoading, setPagesLoading] = useState(false);
+
+  // Load local todos
   useEffect(() => {
     base44.entities.Todo.list('order', 100).then((data) => {
       setTodos(data);
       setLoading(false);
     });
   }, []);
+
+  // Load OneNote items if a page is selected
+  useEffect(() => {
+    if (selectedPageId) fetchOneNoteItems(selectedPageId);
+  }, [selectedPageId]);
+
+  const fetchOneNoteItems = async (pageId) => {
+    setOneNoteLoading(true);
+    try {
+      const res = await base44.functions.invoke('getOneNotePages', { pageId });
+      setOneNoteItems(res.data.items || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setOneNoteLoading(false);
+    }
+  };
+
+  const openPicker = async () => {
+    setShowPicker(true);
+    setPagesLoading(true);
+    try {
+      const res = await base44.functions.invoke('getOneNotePages', {});
+      setPages(res.data.pages || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPagesLoading(false);
+    }
+  };
+
+  const selectPage = (page) => {
+    setSelectedPageId(page.id);
+    setSelectedPageTitle(page.title);
+    localStorage.setItem('todo_onenote_page', page.id);
+    localStorage.setItem('todo_onenote_page_title', page.title);
+    setShowPicker(false);
+  };
+
+  const clearPage = () => {
+    setSelectedPageId(null);
+    setSelectedPageTitle(null);
+    setOneNoteItems([]);
+    localStorage.removeItem('todo_onenote_page');
+    localStorage.removeItem('todo_onenote_page_title');
+  };
 
   const addTodo = async (e) => {
     e.preventDefault();
@@ -44,6 +100,7 @@ export default function TodoPanel() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
         <CheckSquare className="w-4 h-4 text-primary" />
         <h2 className="font-semibold text-sm text-foreground">Todos</h2>
@@ -53,6 +110,85 @@ export default function TodoPanel() {
           </span>
         )}
       </div>
+
+      {/* OneNote selector */}
+      <div className="px-4 py-2 border-b border-border shrink-0 flex items-center gap-2">
+        <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        {selectedPageTitle ? (
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <button onClick={openPicker} className="text-xs text-primary hover:underline truncate flex-1 text-left">
+              {selectedPageTitle}
+            </button>
+            <button onClick={() => fetchOneNoteItems(selectedPageId)} className="text-muted-foreground hover:text-foreground shrink-0">
+              <RefreshCw className={`w-3 h-3 ${oneNoteLoading ? 'animate-spin' : ''}`} />
+            </button>
+            <button onClick={clearPage} className="text-muted-foreground hover:text-destructive shrink-0">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <button onClick={openPicker} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+            Link a OneNote page <ChevronDown className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+
+      {/* Page picker dropdown */}
+      <AnimatePresence>
+        {showPicker && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="border-b border-border shrink-0 overflow-hidden"
+          >
+            <div className="px-4 py-2 max-h-48 overflow-y-auto space-y-0.5">
+              {pagesLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : pages.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2">No pages found.</p>
+              ) : (
+                pages.map((page) => (
+                  <button
+                    key={page.id}
+                    onClick={() => selectPage(page)}
+                    className="w-full text-left px-2 py-1.5 rounded hover:bg-secondary text-xs truncate"
+                  >
+                    <span className="font-medium">{page.title || 'Untitled'}</span>
+                    {page.parentNotebook?.displayName && (
+                      <span className="text-muted-foreground ml-1">· {page.parentNotebook.displayName}</span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* OneNote items */}
+      {selectedPageId && (
+        <div className="px-4 py-2 border-b border-border shrink-0">
+          {oneNoteLoading ? (
+            <div className="flex items-center justify-center py-2">
+              <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            </div>
+          ) : oneNoteItems.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-1">No bullet items found on this page.</p>
+          ) : (
+            <ul className="space-y-1">
+              {oneNoteItems.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-foreground">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                  <span className="leading-snug">{item}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Add input */}
       <form onSubmit={addTodo} className="flex gap-2 px-4 py-3 shrink-0 border-b border-border">
@@ -111,18 +247,12 @@ function TodoItem({ todo, onToggle, onDelete }) {
       <button
         onClick={() => onToggle(todo)}
         className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-          todo.completed
-            ? 'bg-primary border-primary'
-            : 'border-border hover:border-primary'
+          todo.completed ? 'bg-primary border-primary' : 'border-border hover:border-primary'
         }`}
       >
         {todo.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
       </button>
-      <span
-        className={`flex-1 text-sm leading-snug ${
-          todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'
-        }`}
-      >
+      <span className={`flex-1 text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
         {todo.text}
       </span>
       <button
