@@ -7,16 +7,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-function toLocal(dateTimeStr) {
+function toLocal(dateTimeStr, timeZone) {
   if (!dateTimeStr) return new Date();
+  // Graph returns datetime strings without timezone suffix.
+  // When timeZone is UTC we must append Z so JS parses as UTC (not local).
+  const hasOffset = dateTimeStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(dateTimeStr);
+  if (!hasOffset && timeZone === 'UTC') return new Date(dateTimeStr + 'Z');
   return new Date(dateTimeStr);
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0 to 23
 
 function getEventStyle(event, allEvents) {
-  const start = toLocal(event.start.dateTime || event.start.date);
-  const end = toLocal(event.end.dateTime || event.end.date);
+  const start = toLocal(event.start.dateTime || event.start.date, event.start.timeZone);
+  const end = toLocal(event.end.dateTime || event.end.date, event.end.timeZone);
   const startHour = start.getHours() + start.getMinutes() / 60;
   const endHour = end.getHours() + end.getMinutes() / 60;
   const clampedStart = Math.max(startHour, 0);
@@ -27,8 +31,8 @@ function getEventStyle(event, allEvents) {
 }
 
 function EventBlock({ event }) {
-  const start = toLocal(event.start.dateTime || event.start.date);
-  const end = toLocal(event.end.dateTime || event.end.date);
+  const start = toLocal(event.start.dateTime || event.start.date, event.start.timeZone);
+  const end = toLocal(event.end.dateTime || event.end.date, event.end.timeZone);
   const style = getEventStyle(event);
   const duration = (end - start) / 60000;
   const isShort = duration <= 30;
