@@ -19,10 +19,13 @@ Deno.serve(async (req) => {
     // Build start/end in the user's local timezone (midnight to midnight)
     const start = `${date}T00:00:00`;
     const end = `${date}T23:59:59`;
-    const url = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${encodeURIComponent(start)}&endDateTime=${encodeURIComponent(end)}&$orderby=start/dateTime&$select=id,subject,start,end,location,isAllDay&$top=100&$preferredTimezone=${encodeURIComponent(timezone)}`;
+    const url = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${encodeURIComponent(start)}&endDateTime=${encodeURIComponent(end)}&$orderby=start/dateTime&$select=id,subject,start,end,location,isAllDay&$top=100`;
 
     const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${accessToken}` },
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Prefer': `outlook.timezone="${timezone}"`,
+      },
     });
 
     const text = await res.text();
