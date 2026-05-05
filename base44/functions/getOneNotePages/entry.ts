@@ -22,25 +22,28 @@ Deno.serve(async (req) => {
 
     // If pageId provided, return the page content (bulleted items)
     if (body.pageId) {
-      const content = await graphRequest(accessToken, `/me/onenote/pages/${body.pageId}/content?includeIDs=false`);
-      // content is HTML - extract bullet list items
-      const html = typeof content === 'string' ? content : '';
-      // Extract <li> text content
+      const res2 = await fetch(`https://graph.microsoft.com/v1.0/me/onenote/pages/${body.pageId}/content`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+      if (!res2.ok) throw new Error(`Graph API error: ${res2.status}`);
+      const html = await res2.text();
       const items = [];
-      const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
       let match;
+
+      // Extract checklist items: <p data-tag="to-do..."> or <p data-tag="to-do">
+      const checklistRegex = /<p[^>]*data-tag="to-do[^"]*"[^>]*>([\s\S]*?)<\/p>/gi;
+      while ((match = checklistRegex.exec(html)) !== null) {
+        const text = match[1].replace(/<[^>]+>/g, '').trim();
+        if (text) items.push(text);
+      }
+
+      // Also extract <li> bullet items
+      const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
       while ((match = liRegex.exec(html)) !== null) {
         const text = match[1].replace(/<[^>]+>/g, '').trim();
         if (text) items.push(text);
       }
-      // Also try <p> tags with bullet styling if no <li> found
-      if (items.length === 0) {
-        const pRegex = /<p[^>]*list[^>]*>([\s\S]*?)<\/p>/gi;
-        while ((match = pRegex.exec(html)) !== null) {
-          const text = match[1].replace(/<[^>]+>/g, '').trim();
-          if (text) items.push(text);
-        }
-      }
+
       return Response.json({ items });
     }
 
