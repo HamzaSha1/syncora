@@ -157,7 +157,7 @@ export default function CalendarPanel() {
                 className="absolute w-full flex items-start"
                 style={{ top: `${(hour / 24) * 100}%` }}
               >
-                <span className="text-[10px] text-muted-foreground w-9 shrink-0 -mt-2 select-none">
+                <span className="text-[10px] text-muted-foreground w-14 shrink-0 -mt-2 select-none whitespace-nowrap">
                   {hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour < 12 ? `${hour} AM` : `${hour - 12} PM`}
                 </span>
                 <div className="flex-1 border-t border-border/60 mt-0" />
@@ -173,7 +173,7 @@ export default function CalendarPanel() {
                   className="absolute w-full flex items-start"
                   style={{ top: `${(slot / 24) * 100}%` }}
                 >
-                  <span className="text-[9px] text-muted-foreground/50 w-9 shrink-0 -mt-1.5 select-none leading-none">
+                  <span className="text-[9px] text-muted-foreground/50 w-14 shrink-0 -mt-1.5 select-none leading-none whitespace-nowrap">
                     {label}
                   </span>
                   <div className="flex-1 border-t border-border/30 border-dashed mt-0" />
@@ -182,7 +182,7 @@ export default function CalendarPanel() {
             })}
 
             {/* Events area */}
-            <div className="absolute left-9 right-0 top-0 bottom-0">
+            <div className="absolute left-14 right-0 top-0 bottom-0">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
