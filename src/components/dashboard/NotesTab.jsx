@@ -10,9 +10,11 @@ export default function NotesTab() {
   const [loading, setLoading] = useState(true);
   const [activeNote, setActiveNote] = useState(null);
   const [content, setContent] = useState('');
+  const [syncing, setSyncing] = useState(false);
   const saveRef = useRef(null);
+  const syncIntervalRef = useRef(null);
 
-  // OneNote linking per note
+  // OneNote linking per note: { [noteId]: { id, title } }
   const [pages, setPages] = useState([]);
   const [pagesLoading, setPagesLoading] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -32,25 +34,51 @@ export default function NotesTab() {
     localStorage.setItem('note_onenote_map', JSON.stringify(map));
   };
 
+  // Sync full page text from OneNote into the note
+  const syncFromOneNote = useCallback(async (noteId, pageId, silent = false) => {
+    if (!silent) setSyncing(true);
+    try {
+      const res = await base44.functions.invoke('getOneNotePageText', { pageId });
+      const text = res.data.text || '';
+      setContent(text);
+      await base44.entities.Note.update(noteId, { content: text });
+      setNotes((prev) => prev.map((n) => n.id === noteId ? { ...n, content: text } : n));
+    } catch (err) {
+      console.error('Notes sync error:', err);
+    } finally {
+      if (!silent) setSyncing(false);
+    }
+  }, []);
+
+  // Auto-sync every 60s when a linked note is open
+  useEffect(() => {
+    clearInterval(syncIntervalRef.current);
+    if (!activeNote) return;
+    const linked = notePageMap[activeNote.id];
+    if (!linked) return;
+    // Sync immediately on open
+    syncFromOneNote(activeNote.id, linked.id, true);
+    syncIntervalRef.current = setInterval(() => syncFromOneNote(activeNote.id, linked.id, true), 60000);
+    return () => clearInterval(syncIntervalRef.current);
+  }, [activeNote?.id, syncFromOneNote]);
+
+  // Debounced auto-save (only when no OneNote page is linked — otherwise OneNote is source of truth)
+  useEffect(() => {
+    if (!activeNote) return;
+    const linked = notePageMap[activeNote.id];
+    if (linked) return; // don't overwrite with local edits when linked
+    clearTimeout(saveRef.current);
+    saveRef.current = setTimeout(() => {
+      base44.entities.Note.update(activeNote.id, { content });
+      setNotes((prev) => prev.map((n) => n.id === activeNote.id ? { ...n, content } : n));
+    }, 800);
+    return () => clearTimeout(saveRef.current);
+  }, [content, activeNote?.id]);
+
   const openNote = (note) => {
     setActiveNote(note);
     setContent(note.content || '');
   };
-
-  const saveContent = useCallback(async (note, text) => {
-    if (!note) return;
-    const updated = await base44.entities.Note.update(note.id, { content: text });
-    setNotes((prev) => prev.map((n) => n.id === note.id ? { ...n, content: text } : n));
-    setActiveNote((prev) => prev?.id === note.id ? { ...prev, content: text } : prev);
-  }, []);
-
-  // Debounced auto-save
-  useEffect(() => {
-    if (!activeNote) return;
-    clearTimeout(saveRef.current);
-    saveRef.current = setTimeout(() => saveContent(activeNote, content), 800);
-    return () => clearTimeout(saveRef.current);
-  }, [content, activeNote, saveContent]);
 
   const createNote = async () => {
     const note = await base44.entities.Note.create({ title: 'Untitled', content: '' });
@@ -68,13 +96,11 @@ export default function NotesTab() {
     saveNotePageMap(map);
   };
 
-  const updateTitle = async (title) => {
+  const updateTitle = (title) => {
     setActiveNote((prev) => ({ ...prev, title }));
     setNotes((prev) => prev.map((n) => n.id === activeNote.id ? { ...n, title } : n));
     clearTimeout(saveRef.current);
-    saveRef.current = setTimeout(async () => {
-      await base44.entities.Note.update(activeNote.id, { title });
-    }, 600);
+    saveRef.current = setTimeout(() => base44.entities.Note.update(activeNote.id, { title }), 600);
   };
 
   // OneNote page picker
@@ -96,28 +122,14 @@ export default function NotesTab() {
     const map = { ...notePageMap, [activeNote.id]: { id: page.id, title: page.title } };
     saveNotePageMap(map);
     setShowPicker(false);
-    loadOneNotePage(page.id);
+    syncFromOneNote(activeNote.id, page.id);
   };
 
   const unlinkPage = () => {
+    clearInterval(syncIntervalRef.current);
     const map = { ...notePageMap };
     delete map[activeNote.id];
     saveNotePageMap(map);
-  };
-
-  const loadOneNotePage = async (pageId) => {
-    try {
-      const res = await base44.functions.invoke('getOneNotePages', { pageId });
-      const items = res.data.items || [];
-      if (items.length > 0) {
-        const text = items.map((i) => i.text).join('\n');
-        setContent(text);
-        await base44.entities.Note.update(activeNote.id, { content: text });
-        setNotes((prev) => prev.map((n) => n.id === activeNote.id ? { ...n, content: text } : n));
-      }
-    } catch (err) {
-      console.error(err);
-    }
   };
 
   const linkedPage = activeNote ? notePageMap[activeNote.id] : null;
@@ -148,12 +160,13 @@ export default function NotesTab() {
               >
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium truncate">{note.title || 'Untitled'}</p>
-                  <button
+                  <span
+                    role="button"
                     onClick={(e) => deleteNote(note.id, e)}
                     className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  </span>
                 </div>
                 {note.content && (
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{note.content}</p>
@@ -190,8 +203,13 @@ export default function NotesTab() {
             <button onClick={openPicker} className="text-xs text-primary hover:underline truncate flex-1 text-left">
               {linkedPage.title}
             </button>
-            <button onClick={() => loadOneNotePage(linkedPage.id)} className="text-muted-foreground hover:text-foreground shrink-0" title="Reload from OneNote">
-              <RefreshCw className="w-3 h-3" />
+            <button
+              onClick={() => syncFromOneNote(activeNote.id, linkedPage.id)}
+              disabled={syncing}
+              className="text-muted-foreground hover:text-foreground shrink-0"
+              title="Sync from OneNote"
+            >
+              <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
             </button>
             <button onClick={unlinkPage} className="text-muted-foreground hover:text-destructive shrink-0">
               <X className="w-3 h-3" />
@@ -239,12 +257,13 @@ export default function NotesTab() {
         )}
       </AnimatePresence>
 
-      {/* Text area */}
+      {/* Text area — read-only when linked to OneNote */}
       <textarea
         value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Write your note…"
-        className="flex-1 resize-none p-4 text-sm bg-transparent focus:outline-none text-foreground placeholder:text-muted-foreground"
+        onChange={(e) => !linkedPage && setContent(e.target.value)}
+        readOnly={!!linkedPage}
+        placeholder={linkedPage ? 'Syncing from OneNote…' : 'Write your note…'}
+        className={`flex-1 resize-none p-4 text-sm bg-transparent focus:outline-none text-foreground placeholder:text-muted-foreground ${linkedPage ? 'cursor-default opacity-90' : ''}`}
       />
     </div>
   );
