@@ -14,10 +14,9 @@ export default function TodoPanel() {
   const [pages, setPages] = useState([]);
   const [selectedPageId, setSelectedPageId] = useState(() => localStorage.getItem('todo_onenote_page') || null);
   const [selectedPageTitle, setSelectedPageTitle] = useState(() => localStorage.getItem('todo_onenote_page_title') || null);
-  const [oneNoteItems, setOneNoteItems] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
-  const [oneNoteLoading, setOneNoteLoading] = useState(false);
   const [pagesLoading, setPagesLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   // Load local todos
   useEffect(() => {
@@ -27,20 +26,28 @@ export default function TodoPanel() {
     });
   }, []);
 
-  // Load OneNote items if a page is selected
-  useEffect(() => {
-    if (selectedPageId) fetchOneNoteItems(selectedPageId);
-  }, [selectedPageId]);
-
-  const fetchOneNoteItems = async (pageId) => {
-    setOneNoteLoading(true);
+  const importFromOneNote = async (pageId) => {
+    setImporting(true);
     try {
       const res = await base44.functions.invoke('getOneNotePages', { pageId });
-      setOneNoteItems(res.data.items || []);
+      const items = res.data.items || [];
+      // Get existing todo texts to avoid duplicates
+      const existing = await base44.entities.Todo.list('order', 200);
+      const existingTexts = new Set(existing.map((t) => t.text.trim().toLowerCase()));
+      const newItems = items.filter((item) => !existingTexts.has(item.trim().toLowerCase()));
+      if (newItems.length > 0) {
+        const maxOrder = existing.length;
+        const created = await Promise.all(
+          newItems.map((text, i) =>
+            base44.entities.Todo.create({ text, completed: false, order: maxOrder + i })
+          )
+        );
+        setTodos((prev) => [...prev, ...created]);
+      }
     } catch (err) {
       console.error(err);
     } finally {
-      setOneNoteLoading(false);
+      setImporting(false);
     }
   };
 
@@ -63,12 +70,12 @@ export default function TodoPanel() {
     localStorage.setItem('todo_onenote_page', page.id);
     localStorage.setItem('todo_onenote_page_title', page.title);
     setShowPicker(false);
+    importFromOneNote(page.id);
   };
 
   const clearPage = () => {
     setSelectedPageId(null);
     setSelectedPageTitle(null);
-    setOneNoteItems([]);
     localStorage.removeItem('todo_onenote_page');
     localStorage.removeItem('todo_onenote_page_title');
   };
@@ -119,8 +126,13 @@ export default function TodoPanel() {
             <button onClick={openPicker} className="text-xs text-primary hover:underline truncate flex-1 text-left">
               {selectedPageTitle}
             </button>
-            <button onClick={() => fetchOneNoteItems(selectedPageId)} className="text-muted-foreground hover:text-foreground shrink-0">
-              <RefreshCw className={`w-3 h-3 ${oneNoteLoading ? 'animate-spin' : ''}`} />
+            <button
+              onClick={() => importFromOneNote(selectedPageId)}
+              disabled={importing}
+              className="text-muted-foreground hover:text-foreground shrink-0"
+              title="Re-import from OneNote"
+            >
+              <RefreshCw className={`w-3 h-3 ${importing ? 'animate-spin' : ''}`} />
             </button>
             <button onClick={clearPage} className="text-muted-foreground hover:text-destructive shrink-0">
               <X className="w-3 h-3" />
@@ -128,7 +140,7 @@ export default function TodoPanel() {
           </div>
         ) : (
           <button onClick={openPicker} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-            Link a OneNote page <ChevronDown className="w-3 h-3" />
+            Import from OneNote <ChevronDown className="w-3 h-3" />
           </button>
         )}
       </div>
@@ -168,28 +180,6 @@ export default function TodoPanel() {
         )}
       </AnimatePresence>
 
-      {/* OneNote items */}
-      {selectedPageId && (
-        <div className="px-4 py-2 border-b border-border shrink-0">
-          {oneNoteLoading ? (
-            <div className="flex items-center justify-center py-2">
-              <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-            </div>
-          ) : oneNoteItems.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-1">No bullet items found on this page.</p>
-          ) : (
-            <ul className="space-y-1">
-              {oneNoteItems.map((item, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-foreground">
-                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                  <span className="leading-snug">{item}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
       {/* Add input */}
       <form onSubmit={addTodo} className="flex gap-2 px-4 py-3 shrink-0 border-b border-border">
         <Input
@@ -204,7 +194,7 @@ export default function TodoPanel() {
       </form>
 
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
-        {loading ? (
+        {loading || importing ? (
           <div className="flex items-center justify-center h-16">
             <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
           </div>
