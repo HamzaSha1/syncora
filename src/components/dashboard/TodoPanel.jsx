@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
-import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText, Flag } from 'lucide-react';
+import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ export default function TodoPanel() {
   const [activeTab, setActiveTab] = useState('todos');
   const [todos, setTodos] = useState([]);
   const [inputText, setInputText] = useState('');
+  const [inputImportance, setInputImportance] = useState(3);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -169,9 +170,11 @@ export default function TodoPanel() {
       text: inputText.trim(),
       completed: false,
       order: todos.length,
+      importance: inputImportance,
     });
     setTodos((prev) => [...prev, newTodo]);
     setInputText('');
+    setInputImportance(3);
   };
 
   const toggleTodo = async (todo) => {
@@ -195,15 +198,14 @@ export default function TodoPanel() {
     setTodos((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const cycleImportance = async (todo) => {
-    const next = ((todo.importance ?? 2) % 3) + 1;
-    setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, importance: next } : t)));
-    await base44.entities.Todo.update(todo.id, { importance: next });
+  const setImportance = async (todo, value) => {
+    setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, importance: value } : t)));
+    await base44.entities.Todo.update(todo.id, { importance: value });
   };
 
   const active = todos
     .filter((t) => !t.completed)
-    .sort((a, b) => (a.importance ?? 2) - (b.importance ?? 2));
+    .sort((a, b) => (a.importance ?? 3) - (b.importance ?? 3));
   const done = todos.filter((t) => t.completed);
 
   if (activeTab === 'notes') {
@@ -314,16 +316,22 @@ export default function TodoPanel() {
       </AnimatePresence>
 
       {/* Add input */}
-      <form onSubmit={addTodo} className="flex gap-2 px-4 py-3 shrink-0 border-b border-border">
-        <Input
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Add a task…"
-          className="h-8 text-sm"
-        />
-        <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
-          <Plus className="w-4 h-4" />
-        </Button>
+      <form onSubmit={addTodo} className="flex flex-col gap-1.5 px-4 py-3 shrink-0 border-b border-border">
+        <div className="flex gap-2">
+          <Input
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Add a task…"
+            className="h-8 text-sm"
+          />
+          <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-muted-foreground">Importance:</span>
+          <ImportancePicker value={inputImportance} onChange={setInputImportance} />
+        </div>
       </form>
 
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
@@ -335,7 +343,7 @@ export default function TodoPanel() {
           <>
             <AnimatePresence>
               {active.map((todo) => (
-                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onCycleImportance={cycleImportance} />
+                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} />
               ))}
             </AnimatePresence>
             {done.length > 0 && (
@@ -343,7 +351,7 @@ export default function TodoPanel() {
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest pt-2 pb-1">Completed</p>
                 <AnimatePresence>
                   {done.map((todo) => (
-                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onCycleImportance={cycleImportance} />
+                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} />
                   ))}
                 </AnimatePresence>
               </>
@@ -358,15 +366,38 @@ export default function TodoPanel() {
   );
 }
 
-const IMPORTANCE_CONFIG = {
-  1: { color: 'text-destructive', title: 'High priority' },
-  2: { color: 'text-yellow-500', title: 'Medium priority' },
-  3: { color: 'text-muted-foreground/40', title: 'Low priority' },
+const IMPORTANCE_COLORS = {
+  1: 'bg-destructive text-white',
+  2: 'bg-orange-500 text-white',
+  3: 'bg-yellow-400 text-black',
+  4: 'bg-blue-400 text-white',
+  5: 'bg-muted text-muted-foreground',
 };
 
-function TodoItem({ todo, onToggle, onDelete, onCycleImportance }) {
-  const imp = todo.importance ?? 2;
-  const impConfig = IMPORTANCE_CONFIG[imp];
+function ImportancePicker({ value, onChange }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          className={`w-5 h-5 rounded text-[10px] font-bold transition-all ${
+            value === n
+              ? IMPORTANCE_COLORS[n] + ' scale-110 shadow'
+              : 'bg-secondary text-muted-foreground hover:bg-secondary/70'
+          }`}
+          title={`Importance ${n}`}
+        >
+          {n}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TodoItem({ todo, onToggle, onDelete, onSetImportance }) {
+  const imp = todo.importance ?? 3;
 
   return (
     <motion.div
@@ -376,15 +407,6 @@ function TodoItem({ todo, onToggle, onDelete, onCycleImportance }) {
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
       className="flex items-start gap-2 group py-1"
     >
-      {!todo.completed && (
-        <button
-          onClick={() => onCycleImportance(todo)}
-          className={`mt-0.5 shrink-0 transition-colors hover:opacity-80 ${impConfig.color}`}
-          title={impConfig.title}
-        >
-          <Flag className="w-3.5 h-3.5" fill="currentColor" />
-        </button>
-      )}
       <button
         onClick={() => onToggle(todo)}
         className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
@@ -393,15 +415,28 @@ function TodoItem({ todo, onToggle, onDelete, onCycleImportance }) {
       >
         {todo.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
       </button>
-      <span className={`flex-1 text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-        {todo.text}
-        {todo.onenote_element_id && (
-          <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
+      <div className="flex-1 min-w-0">
+        <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+          {todo.text}
+          {todo.onenote_element_id && (
+            <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
+          )}
+        </span>
+        {!todo.completed && (
+          <div className="flex items-center gap-1 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-[9px] text-muted-foreground">P:</span>
+            <ImportancePicker value={imp} onChange={(v) => onSetImportance(todo, v)} />
+          </div>
         )}
-      </span>
+      </div>
+      {!todo.completed && (
+        <span className={`text-[10px] font-bold w-4 h-4 rounded flex items-center justify-center shrink-0 mt-0.5 ${IMPORTANCE_COLORS[imp]}`}>
+          {imp}
+        </span>
+      )}
       <button
         onClick={() => onDelete(todo.id)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
       >
         <Trash2 className="w-3.5 h-3.5" />
       </button>

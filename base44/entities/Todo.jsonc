@@ -17,8 +17,8 @@
     },
     "importance": {
       "type": "number",
-      "default": 2,
-      "description": "Importance level: 1=high, 2=medium, 3=low"
+      "default": 3,
+      "description": "Importance level: 1=highest, 5=lowest"
     },
     "onenote_element_id": {
       "type": "string",
