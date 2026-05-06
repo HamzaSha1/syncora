@@ -1,0 +1,44 @@
+{
+  "name": "Advisor",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Advisor name"
+    },
+    "role": {
+      "type": "string",
+      "description": "Advisor role"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "Reference to the Project entity"
+    },
+    "el_start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Engagement Letter signing date"
+    },
+    "duration_months": {
+      "type": "number",
+      "description": "Duration of EL in months"
+    },
+    "pause_start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Start of pause period (optional)"
+    },
+    "pause_resume_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Resume date after pause (optional)"
+    }
+  },
+  "required": [
+    "name",
+    "role",
+    "project_id",
+    "el_start_date",
+    "duration_months"
+  ]
+}

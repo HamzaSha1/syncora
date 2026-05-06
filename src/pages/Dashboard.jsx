@@ -2,6 +2,7 @@ import { useState } from 'react';
 import CalendarPanel from '@/components/dashboard/CalendarPanel';
 import TodoPanel from '@/components/dashboard/TodoPanel';
 import MonthlyCalendarPanel from '@/components/dashboard/MonthlyCalendarPanel';
+import AdvisorPanel from '@/components/dashboard/AdvisorPanel';
 import { format } from 'date-fns';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 
@@ -26,8 +27,8 @@ export default function Dashboard() {
 
       {/* Resizable layout */}
       <PanelGroup direction="vertical" className="flex-1 min-h-0">
-        {/* Calendar panel */}
-        <Panel defaultSize={50} minSize={20}>
+        {/* Top: Calendar */}
+        <Panel defaultSize={40} minSize={15}>
           <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <CalendarPanel selectedDate={selectedDate} onDateChange={setSelectedDate} />
           </div>
@@ -35,8 +36,8 @@ export default function Dashboard() {
 
         <ResizeHandle direction="vertical" />
 
-        {/* Bottom row */}
-        <Panel defaultSize={50} minSize={20}>
+        {/* Middle row: Todo + Monthly Calendar */}
+        <Panel defaultSize={30} minSize={15}>
           <PanelGroup direction="horizontal" className="h-full">
             <Panel defaultSize={45} minSize={20}>
               <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
@@ -52,6 +53,15 @@ export default function Dashboard() {
               </div>
             </Panel>
           </PanelGroup>
+        </Panel>
+
+        <ResizeHandle direction="vertical" />
+
+        {/* Bottom: Advisor Tracking */}
+        <Panel defaultSize={30} minSize={15}>
+          <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+            <AdvisorPanel />
+          </div>
         </Panel>
       </PanelGroup>
     </div>
