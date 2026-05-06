@@ -398,6 +398,7 @@ function ImportancePicker({ value, onChange }) {
 
 function TodoItem({ todo, onToggle, onDelete, onSetImportance }) {
   const imp = todo.importance ?? 3;
+  const [showPicker, setShowPicker] = useState(false);
 
   return (
     <motion.div
@@ -422,17 +423,20 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance }) {
             <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
           )}
         </span>
-        {!todo.completed && (
-          <div className="flex items-center gap-1 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="text-[9px] text-muted-foreground">P:</span>
-            <ImportancePicker value={imp} onChange={(v) => onSetImportance(todo, v)} />
+        {!todo.completed && showPicker && (
+          <div className="flex items-center gap-1 mt-1">
+            <ImportancePicker value={imp} onChange={(v) => { onSetImportance(todo, v); setShowPicker(false); }} />
           </div>
         )}
       </div>
       {!todo.completed && (
-        <span className={`text-[10px] font-bold w-4 h-4 rounded flex items-center justify-center shrink-0 mt-0.5 ${IMPORTANCE_COLORS[imp]}`}>
+        <button
+          onClick={() => setShowPicker((p) => !p)}
+          className={`text-[10px] font-bold w-4 h-4 rounded flex items-center justify-center shrink-0 mt-0.5 transition-all hover:scale-110 ${IMPORTANCE_COLORS[imp]}`}
+          title="Change priority"
+        >
           {imp}
-        </span>
+        </button>
       )}
       <button
         onClick={() => onDelete(todo.id)}
