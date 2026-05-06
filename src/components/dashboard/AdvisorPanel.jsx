@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { Plus, Trash2, PenLine, Check, X, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { format, parseISO, addMonths, isValid } from 'date-fns';
+import { format, parseISO, addMonths, addDays, differenceInDays, isValid } from 'date-fns';
 import AdvisorTimeline from './AdvisorTimeline';
 import AddAdvisorForm from './AddAdvisorForm';
 
@@ -241,11 +241,18 @@ export default function AdvisorPanel() {
                     <span>{adv.el_start_date ? format(parseISO(adv.el_start_date), 'MMM yyyy') : '—'}</span>
                     <span>
                       {adv.el_start_date && adv.duration_months
-                        ? `EL ends ${format(addMonths(parseISO(adv.el_start_date), adv.duration_months), 'MMM yyyy')}`
+                        ? (() => {
+                            const baseEnd = addMonths(parseISO(adv.el_start_date), adv.duration_months);
+                            const pauseDays = (adv.pause_start_date && adv.pause_resume_date && isValid(parseISO(adv.pause_start_date)) && isValid(parseISO(adv.pause_resume_date)))
+                              ? differenceInDays(parseISO(adv.pause_resume_date), parseISO(adv.pause_start_date))
+                              : 0;
+                            const effectiveEnd = addDays(baseEnd, pauseDays);
+                            return `EL ends ${format(effectiveEnd, 'MMM d, yyyy')}${pauseDays > 0 ? ` (+${pauseDays}d pause)` : ''}`;
+                          })()
                         : ''}
                     </span>
                     {activeProject.submission_deadline && (
-                      <span>Deadline: {format(parseISO(activeProject.submission_deadline), 'MMM yyyy')}</span>
+                      <span>Deadline: {format(parseISO(activeProject.submission_deadline), 'MMM d, yyyy')}</span>
                     )}
                   </div>
                 </div>
