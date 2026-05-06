@@ -26,11 +26,12 @@ export function computeSegments(advisor, projectDeadline) {
   const pauseDays = hasPause ? differenceInDays(pauseResume, pauseStart) : 0;
   const effectiveElEnd = addDays(baseElEnd, pauseDays);
 
-  // Timeline span: from elStart to max(effectiveElEnd, deadline, today) + buffer
+  // Timeline span: from elStart to max(effectiveElEnd, deadline, today)
+  // Always use deadline as the right edge if available, so the bar fills to the deadline
   let timelineEnd = effectiveElEnd;
   if (deadline && deadline > timelineEnd) timelineEnd = deadline;
   if (today > timelineEnd) timelineEnd = today;
-  const totalDays = differenceInDays(timelineEnd, elStart) + 30;
+  const totalDays = differenceInDays(timelineEnd, elStart);
 
   const toPercent = (date) => Math.min(100, Math.max(0, (differenceInDays(date, elStart) / totalDays) * 100));
 
