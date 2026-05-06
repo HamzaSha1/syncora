@@ -15,6 +15,11 @@
       "type": "number",
       "description": "Sort order"
     },
+    "importance": {
+      "type": "number",
+      "default": 2,
+      "description": "Importance level: 1=high, 2=medium, 3=low"
+    },
     "onenote_element_id": {
       "type": "string",
       "description": "The OneNote paragraph element ID for syncing checklist state"

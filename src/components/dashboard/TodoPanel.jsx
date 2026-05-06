@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
-import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText } from 'lucide-react';
+import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText, Flag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -195,7 +195,15 @@ export default function TodoPanel() {
     setTodos((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const active = todos.filter((t) => !t.completed);
+  const cycleImportance = async (todo) => {
+    const next = ((todo.importance ?? 2) % 3) + 1;
+    setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, importance: next } : t)));
+    await base44.entities.Todo.update(todo.id, { importance: next });
+  };
+
+  const active = todos
+    .filter((t) => !t.completed)
+    .sort((a, b) => (a.importance ?? 2) - (b.importance ?? 2));
   const done = todos.filter((t) => t.completed);
 
   if (activeTab === 'notes') {
@@ -327,7 +335,7 @@ export default function TodoPanel() {
           <>
             <AnimatePresence>
               {active.map((todo) => (
-                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
+                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onCycleImportance={cycleImportance} />
               ))}
             </AnimatePresence>
             {done.length > 0 && (
@@ -335,7 +343,7 @@ export default function TodoPanel() {
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest pt-2 pb-1">Completed</p>
                 <AnimatePresence>
                   {done.map((todo) => (
-                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
+                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onCycleImportance={cycleImportance} />
                   ))}
                 </AnimatePresence>
               </>
@@ -350,7 +358,16 @@ export default function TodoPanel() {
   );
 }
 
-function TodoItem({ todo, onToggle, onDelete }) {
+const IMPORTANCE_CONFIG = {
+  1: { color: 'text-destructive', title: 'High priority' },
+  2: { color: 'text-yellow-500', title: 'Medium priority' },
+  3: { color: 'text-muted-foreground/40', title: 'Low priority' },
+};
+
+function TodoItem({ todo, onToggle, onDelete, onCycleImportance }) {
+  const imp = todo.importance ?? 2;
+  const impConfig = IMPORTANCE_CONFIG[imp];
+
   return (
     <motion.div
       layout
@@ -359,6 +376,15 @@ function TodoItem({ todo, onToggle, onDelete }) {
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
       className="flex items-start gap-2 group py-1"
     >
+      {!todo.completed && (
+        <button
+          onClick={() => onCycleImportance(todo)}
+          className={`mt-0.5 shrink-0 transition-colors hover:opacity-80 ${impConfig.color}`}
+          title={impConfig.title}
+        >
+          <Flag className="w-3.5 h-3.5" fill="currentColor" />
+        </button>
+      )}
       <button
         onClick={() => onToggle(todo)}
         className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
