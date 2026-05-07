@@ -117,9 +117,9 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
     dragState.clear();
     if (!text || !gridRef.current) return;
 
+    // getBoundingClientRect already accounts for scroll, so no need to add scrollTop
     const rect = gridRef.current.getBoundingClientRect();
-    const scrollTop = scrollRef.current ? scrollRef.current.scrollTop : 0;
-    const relY = (clientY - rect.top) + scrollTop;
+    const relY = clientY - rect.top;
     const rawHour = (relY / 1152) * 24;
     const snappedHour = Math.round(rawHour * 4) / 4;
     const startHour = Math.max(0, Math.min(snappedHour, 23.75));
@@ -188,6 +188,12 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
       <div
         ref={scrollRef}
         className={`flex-1 overflow-y-auto px-4 pb-4 transition-colors ${isDraggingTodo ? 'bg-primary/5' : ''}`}
+        onDragOver={(e) => { if (dragState.get()) e.preventDefault(); }}
+        onDrop={(e) => {
+          if (!dragState.get()) return;
+          e.preventDefault();
+          handleExternalDrop(e.clientX, e.clientY);
+        }}
       >
         {error ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2">

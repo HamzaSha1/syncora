@@ -24,19 +24,17 @@ export default function Dashboard() {
 
   return (
     <div className="bg-background p-4 flex flex-col gap-2 relative" style={{ height: '100vh', overflow: 'hidden' }}>
-      {/* Full-screen drag overlay — captures drops anywhere and forwards to CalendarPanel */}
-      {isDraggingTodo && (
-        <div
-          className="absolute inset-0 z-50"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            handleTodoDragEnd();
-            onDropToCalendar.current?.(e.clientX, e.clientY);
-          }}
-          onDragEnd={handleTodoDragEnd}
-        />
-      )}
+      {/* Always-present overlay — pointer-events toggled on drag so there's no mount-timing gap */}
+      <div
+        className="absolute inset-0 z-50"
+        style={{ pointerEvents: isDraggingTodo ? 'all' : 'none' }}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          handleTodoDragEnd();
+          onDropToCalendar.current?.(e.clientX, e.clientY);
+        }}
+      />
 
       {/* Top date bar */}
       <div className="shrink-0">
