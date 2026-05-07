@@ -54,6 +54,7 @@ export default function AttachmentPicker({ attachments, onChange, onClose }) {
       date: email.receivedDateTime,
       webLink: email.webLink,
     }]);
+    onClose();
   };
 
   const removeAttachment = (id) => onChange(attachments.filter((a) => a.id !== id));
