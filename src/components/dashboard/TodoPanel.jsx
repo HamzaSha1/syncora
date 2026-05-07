@@ -469,19 +469,22 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
             )}
           </span>
           {parseAttachments(todo.attachments).map((att) => (
-            <button
+            <span
               key={att.id}
-              type="button"
+              role="button"
+              tabIndex={0}
               draggable={false}
+              onDragStart={(e) => e.preventDefault()}
               onPointerDown={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); att.webLink && window.open(att.webLink, '_blank', 'noopener,noreferrer'); }}
-              className="inline-flex items-center gap-0.5 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1.5 py-0.5 text-[10px] max-w-[160px] transition-colors shrink-0 cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); att.webLink && window.open(att.webLink, '_blank', 'noopener,noreferrer'); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { att.webLink && window.open(att.webLink, '_blank', 'noopener,noreferrer'); } }}
+              className="inline-flex items-center gap-0.5 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1.5 py-0.5 text-[10px] max-w-[160px] transition-colors shrink-0 cursor-pointer select-none"
               title={att.subject}
             >
               <Mail className="w-2.5 h-2.5 shrink-0" />
               <span className="truncate">{att.subject}</span>
-            </button>
+            </span>
           ))}
           {!todo.completed && showImportancePicker && (
             <div className="flex items-center gap-1 mt-1 w-full">
