@@ -482,8 +482,8 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
               className="inline-flex items-center gap-0.5 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1.5 py-0.5 text-[10px] max-w-[160px] transition-colors shrink-0 cursor-pointer select-none"
               title={att.subject}
             >
-              <Mail className="w-2.5 h-2.5 shrink-0" />
-              <span className="truncate">{att.subject}</span>
+              <Mail className="w-2.5 h-2.5 shrink-0 pointer-events-none" />
+              <span className="truncate pointer-events-none">{att.subject}</span>
             </span>
           ))}
           {!todo.completed && showImportancePicker && (
