@@ -469,21 +469,19 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
             )}
           </span>
           {parseAttachments(todo.attachments).map((att) => (
-            <a
+            <button
               key={att.id}
-              href={att.webLink}
-              target="_blank"
-              rel="noopener noreferrer"
+              type="button"
               draggable={false}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (att.webLink) window.open(att.webLink, '_blank', 'noopener,noreferrer'); }}
+              onPointerDown={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
-              onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={(e) => { e.stopPropagation(); att.webLink && window.open(att.webLink, '_blank', 'noopener,noreferrer'); }}
               className="inline-flex items-center gap-0.5 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1.5 py-0.5 text-[10px] max-w-[160px] transition-colors shrink-0 cursor-pointer"
               title={att.subject}
             >
               <Mail className="w-2.5 h-2.5 shrink-0" />
               <span className="truncate">{att.subject}</span>
-            </a>
+            </button>
           ))}
           {!todo.completed && showImportancePicker && (
             <div className="flex items-center gap-1 mt-1 w-full">

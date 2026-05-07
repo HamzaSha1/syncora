@@ -165,18 +165,19 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
               {taskEvent.attachments?.length > 0 && (
                 <div className="flex items-center gap-0.5 shrink-0">
                   {taskEvent.attachments.map((att) => (
-                    <a
+                    <button
                       key={att.id}
-                      href={att.webLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      type="button"
+                      draggable={false}
+                      onPointerDown={(e) => e.stopPropagation()}
                       onMouseDown={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-0.5 bg-black/15 hover:bg-black/25 text-white rounded px-1 py-0.5 text-[9px] max-w-[80px] transition-colors pointer-events-auto"
+                      onClick={(e) => { e.stopPropagation(); att.webLink && window.open(att.webLink, '_blank', 'noopener,noreferrer'); }}
+                      className="inline-flex items-center gap-0.5 bg-black/15 hover:bg-black/25 text-white rounded px-1 py-0.5 text-[9px] max-w-[80px] transition-colors cursor-pointer"
                       title={att.subject}
                     >
                       {attIcon(att)}
                       <span className="truncate">{att.subject}</span>
-                    </a>
+                    </button>
                   ))}
                 </div>
               )}
