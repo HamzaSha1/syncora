@@ -154,7 +154,8 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
 
   const handleExternalDrop = useCallback((clientX, clientY) => {
     const text = dragState.get();
-    const todoId = dragState.todoId; // read before clear()
+    const todoId = dragState.todoId;
+    const attachments = dragState.attachments;
     dragState.clear();
     if (!text || !gridRef.current) return;
 
@@ -166,7 +167,7 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
 
     setTaskEvents((prev) => [
       ...prev,
-      { id: Date.now(), text, todoId, startHour, durationHours: 1, color: nextColor() },
+      { id: Date.now(), text, todoId, attachments, startHour, durationHours: 1, color: nextColor() },
     ]);
   }, []);
 

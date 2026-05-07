@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Mail, Paperclip } from 'lucide-react';
 
 const GRID_HEIGHT = 1152;
 // snap to nearest 5-minute increment
@@ -118,6 +119,11 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
           </button>
           <p className={`text-[9px] font-semibold text-white leading-none truncate flex-1 ${done ? 'line-through opacity-60' : ''}`}>
             {taskEvent.text}
+            {taskEvent.attachments?.length > 0 && (
+              <span className="ml-1 inline-flex items-center gap-0.5 opacity-80">
+                <Paperclip className="w-2 h-2 inline" />{taskEvent.attachments.length}
+              </span>
+            )}
           </p>
           <button
             className="pointer-events-auto text-white/50 hover:text-white opacity-0 group-hover:opacity-100 text-[9px] leading-none shrink-0"
@@ -158,6 +164,26 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
             <p className={`text-[9px] text-white/75 pl-5 ${done ? 'opacity-50' : ''}`}>
               {formatHour(taskEvent.startHour)} – {formatHour(endHour)}
             </p>
+          )}
+
+          {/* Attachment chips — only if has attachments and not micro/tiny */}
+          {!isMicro && !isTiny && taskEvent.attachments?.length > 0 && (
+            <div className="pl-5 flex flex-wrap gap-0.5 mt-0.5">
+              {taskEvent.attachments.map((att) => (
+                <a
+                  key={att.id}
+                  href={att.webLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-0.5 bg-black/15 hover:bg-black/25 text-white rounded px-1 py-0.5 text-[9px] max-w-[120px] transition-colors pointer-events-auto"
+                  title={att.subject}
+                >
+                  <Mail className="w-2 h-2 shrink-0" />
+                  <span className="truncate">{att.subject}</span>
+                </a>
+              ))}
+            </div>
           )}
         </div>
       )}
