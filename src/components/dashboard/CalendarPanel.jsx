@@ -3,7 +3,7 @@ import { dragState } from '@/lib/dragState';
 import { todoSync } from '@/lib/todoSync';
 import { base44 } from '@/api/base44Client';
 import { format, addDays, subDays, isToday } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar, MapPin, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, RefreshCw, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskEventBlock from './TaskEventBlock';
@@ -45,11 +45,21 @@ function getEventStyle(event) {
   return { top: `${top}%`, height: `${Math.max(height, 1.5)}%` };
 }
 
+function getMeetingUrl(event) {
+  if (event.onlineMeeting?.joinUrl) return event.onlineMeeting.joinUrl;
+  if (event.onlineMeetingUrl) return event.onlineMeetingUrl;
+  // Extract from body (Teams/Zoom links often embedded in HTML body)
+  const bodyContent = event.body?.content || '';
+  const match = bodyContent.match(/https:\/\/(?:teams\.microsoft\.com\/l\/meetup-join|zoom\.us\/j|meet\.google\.com)[^\s"'<>]+/);
+  return match ? match[0] : null;
+}
+
 function EventBlock({ event, onClick }) {
   const start = toLocal(event.start.dateTime || event.start.date, event.start.timeZone);
   const end = toLocal(event.end.dateTime || event.end.date, event.end.timeZone);
   const style = getEventStyle(event);
   const isShort = (end - start) / 60000 <= 30;
+  const meetingUrl = getMeetingUrl(event);
 
   return (
     <motion.div
@@ -60,9 +70,24 @@ function EventBlock({ event, onClick }) {
       style={style}
       title={event.subject}
     >
-      <p className={`font-medium leading-tight truncate ${isShort ? 'text-[10px]' : 'text-xs'}`}>
-        {event.subject}
-      </p>
+      <div className="flex items-start justify-between gap-1">
+        <p className={`font-medium leading-tight truncate flex-1 ${isShort ? 'text-[10px]' : 'text-xs'}`}>
+          {event.subject}
+        </p>
+        {meetingUrl && (
+          <a
+            href={meetingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="shrink-0 bg-white/20 hover:bg-white/30 rounded px-1 py-0.5 flex items-center gap-0.5 text-[9px] font-medium transition-colors"
+            title="Join meeting"
+          >
+            <Video className="w-2.5 h-2.5" />
+            {!isShort && 'Join'}
+          </a>
+        )}
+      </div>
       {!isShort && (
         <p className="text-[10px] opacity-80 truncate">
           {format(start, 'h:mm a')} – {format(end, 'h:mm a')}
