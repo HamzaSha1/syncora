@@ -142,7 +142,7 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
         </div>
       ) : (
         /* ── Short / Normal ── */
-        <div className={`px-2 ${isShort ? 'pt-1 pb-3' : 'pt-1.5 pb-5'} flex flex-col gap-0.5 pointer-events-none`}>
+        <div className={`px-2 ${isShort ? 'pt-1 pb-3' : 'pt-1.5 pb-5'} flex flex-col gap-0.5`}>
           {/* Top row: checkbox + title + remove */}
           <div className="flex items-center gap-1.5">
             <button
