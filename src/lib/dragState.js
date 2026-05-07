@@ -1,8 +1,8 @@
-// Global drag state shared between TodoPanel and CalendarPanel.
-// dataTransfer.getData() is unreliable across panel boundaries.
+// Global drag state — module-level variable bypasses dataTransfer cross-panel issues
 export const dragState = {
   text: null,
-  set(t) { this.text = t; },
+  todoId: null,
+  set(text, todoId) { this.text = text; this.todoId = todoId ?? null; },
   get() { return this.text; },
-  clear() { this.text = null; },
+  clear() { this.text = null; this.todoId = null; },
 };

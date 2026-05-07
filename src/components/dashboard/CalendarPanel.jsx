@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { dragState } from '@/lib/dragState';
+import { todoSync } from '@/lib/todoSync';
 import { base44 } from '@/api/base44Client';
 import { format, addDays, subDays, isToday } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, RefreshCw } from 'lucide-react';
@@ -124,15 +125,28 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
     const snappedHour = Math.round(rawHour * 4) / 4;
     const startHour = Math.max(0, Math.min(snappedHour, 23.75));
 
+    const todoId = dragState.todoId;
     setTaskEvents((prev) => [
       ...prev,
-      { id: Date.now(), text, startHour, durationHours: 0.5, color: nextColor() },
+      { id: Date.now(), text, todoId, startHour, durationHours: 0.5, color: nextColor() },
     ]);
   }, []);
 
   useEffect(() => {
     registerDropHandler?.(handleExternalDrop);
   }, [registerDropHandler, handleExternalDrop]);
+
+  const handleComplete = async (id, todoId) => {
+    setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, completed: true } : te));
+    if (todoId) {
+      try {
+        await base44.entities.Todo.update(todoId, { completed: true });
+        todoSync.onTodoCompleted?.(todoId);
+      } catch (err) {
+        console.error('Failed to mark todo as done:', err);
+      }
+    }
+  };
 
   const handleMove = (id, newStartHour) => {
     setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, startHour: newStartHour } : te));
@@ -267,7 +281,7 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
               )}
               {/* Dropped task events */}
               {taskEvents.map((te) => (
-                <TaskEventBlock key={te.id} taskEvent={te} onMove={handleMove} onResize={handleResize} onRemove={handleRemove} />
+                <TaskEventBlock key={te.id} taskEvent={te} onComplete={handleComplete} onMove={handleMove} onResize={handleResize} onRemove={handleRemove} />
               ))}
 
               {/* Current time indicator */}

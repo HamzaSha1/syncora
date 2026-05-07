@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { dragState } from '@/lib/dragState';
+import { todoSync } from '@/lib/todoSync';
 import { base44 } from '@/api/base44Client';
 import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,6 +31,14 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
       setTodos(data);
       setLoading(false);
     });
+  }, []);
+
+  // Register callback so CalendarPanel can mark todos as done
+  useEffect(() => {
+    todoSync.onTodoCompleted = (todoId) => {
+      setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, completed: true } : t));
+    };
+    return () => { todoSync.onTodoCompleted = null; };
   }, []);
 
   // Auto-sync from OneNote every 60s when a page is linked
@@ -402,7 +411,7 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
   const [showPicker, setShowPicker] = useState(false);
 
   const handleDragStart = (e) => {
-    dragState.set(todo.text);
+    dragState.set(todo.text, todo.id);
     e.dataTransfer.setData('text/plain', todo.text);
     e.dataTransfer.effectAllowed = 'copy';
     onDragStart?.();
