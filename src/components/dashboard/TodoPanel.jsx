@@ -4,8 +4,9 @@ import { CheckSquare, Plus, Trash2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import dragState from '@/lib/dragState';
 
-export default function TodoPanel() {
+export default function TodoPanel({ onDragStart, onDragEnd }) {
   const [todos, setTodos] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -76,7 +77,14 @@ export default function TodoPanel() {
           <>
             <AnimatePresence>
               {active.map((todo) => (
-                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
+                <TodoItem
+                  key={todo.id}
+                  todo={todo}
+                  onToggle={toggleTodo}
+                  onDelete={deleteTodo}
+                  onDragStart={onDragStart}
+                  onDragEnd={onDragEnd}
+                />
               ))}
             </AnimatePresence>
             {done.length > 0 && (
@@ -84,7 +92,14 @@ export default function TodoPanel() {
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest pt-2 pb-1">Completed</p>
                 <AnimatePresence>
                   {done.map((todo) => (
-                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
+                    <TodoItem
+                      key={todo.id}
+                      todo={todo}
+                      onToggle={toggleTodo}
+                      onDelete={deleteTodo}
+                      onDragStart={onDragStart}
+                      onDragEnd={onDragEnd}
+                    />
                   ))}
                 </AnimatePresence>
               </>
@@ -99,7 +114,17 @@ export default function TodoPanel() {
   );
 }
 
-function TodoItem({ todo, onToggle, onDelete }) {
+function TodoItem({ todo, onToggle, onDelete, onDragStart, onDragEnd }) {
+  const handleDragStart = (e) => {
+    dragState.task = { text: todo.text, color: dragState.nextColor() };
+    e.dataTransfer.effectAllowed = 'copy';
+    onDragStart?.();
+  };
+
+  const handleDragEnd = () => {
+    onDragEnd?.();
+  };
+
   return (
     <motion.div
       layout
@@ -107,6 +132,9 @@ function TodoItem({ todo, onToggle, onDelete }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
       className="flex items-start gap-2 group py-1"
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
     >
       <button
         onClick={() => onToggle(todo)}
@@ -119,7 +147,7 @@ function TodoItem({ todo, onToggle, onDelete }) {
         {todo.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
       </button>
       <span
-        className={`flex-1 text-sm leading-snug ${
+        className={`flex-1 text-sm leading-snug cursor-grab active:cursor-grabbing ${
           todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'
         }`}
       >

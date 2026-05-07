@@ -1,8 +1,10 @@
+import { useState, useCallback } from 'react';
 import CalendarPanel from '@/components/dashboard/CalendarPanel';
 import TodoPanel from '@/components/dashboard/TodoPanel';
 import NotesPanel from '@/components/dashboard/NotesPanel';
 import { format } from 'date-fns';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import dragState from '@/lib/dragState';
 
 function ResizeHandle({ direction = 'horizontal' }) {
   return (
@@ -13,8 +15,33 @@ function ResizeHandle({ direction = 'horizontal' }) {
 }
 
 export default function Dashboard() {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragStart = useCallback(() => setIsDragging(true), []);
+  const handleDragEnd = useCallback(() => setIsDragging(false), []);
+
+  const handleOverlayDragOver = useCallback((e) => e.preventDefault(), []);
+
+  const handleOverlayDrop = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (dragState.dropHandler && dragState.task) {
+      dragState.dropHandler(e.clientX, e.clientY);
+      dragState.task = null;
+    }
+  }, []);
+
   return (
     <div className="h-screen bg-background p-4 flex flex-col gap-2 overflow-hidden">
+      {/* Full-screen overlay during drag — captures drop across panel boundaries */}
+      {isDragging && (
+        <div
+          className="fixed inset-0 z-50"
+          onDragOver={handleOverlayDragOver}
+          onDrop={handleOverlayDrop}
+        />
+      )}
+
       {/* Top date bar */}
       <div className="shrink-0">
         <h1 className="text-xl font-semibold text-foreground">{format(new Date(), 'EEEE')}</h1>
@@ -26,7 +53,7 @@ export default function Dashboard() {
         {/* Calendar panel */}
         <Panel defaultSize={50} minSize={20}>
           <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <CalendarPanel />
+            <CalendarPanel isDragging={isDragging} />
           </div>
         </Panel>
 
@@ -37,7 +64,7 @@ export default function Dashboard() {
           <PanelGroup direction="horizontal" className="h-full">
             <Panel defaultSize={45} minSize={20}>
               <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <TodoPanel />
+                <TodoPanel onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
               </div>
             </Panel>
 
