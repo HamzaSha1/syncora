@@ -9,7 +9,11 @@ import { Input } from '@/components/ui/input';
 import NotesTab from './NotesTab';
 import AttachmentPicker from './AttachmentPicker';
 
-const parseAttachments = (raw) => { try { return raw ? JSON.parse(raw) : []; } catch { return []; } };
+const parseAttachments = (raw) => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try { return JSON.parse(raw); } catch { return []; }
+};
 
 export default function TodoPanel({ onDragStart, onDragEnd }) {
   const [activeTab, setActiveTab] = useState('todos');
@@ -221,7 +225,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
   };
 
   const handleAttachmentsChange = (todoId, attachments) => {
-    setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, attachments: JSON.stringify(attachments) } : t));
+    setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, attachments } : t));
   };
 
   const active = todos
@@ -519,9 +523,8 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
         <AttachmentPicker
           attachments={parseAttachments(todo.attachments)}
           onChange={async (newAtts) => {
-            const encoded = JSON.stringify(newAtts);
             onAttachmentsChange(todo.id, newAtts);
-            await base44.entities.Todo.update(todo.id, { attachments: encoded });
+            await base44.entities.Todo.update(todo.id, { attachments: newAtts });
           }}
           onClose={() => setShowAttachPicker(false)}
         />
