@@ -400,13 +400,20 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance }) {
   const imp = todo.importance ?? 3;
   const [showPicker, setShowPicker] = useState(false);
 
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('text/plain', todo.text);
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-      className="flex items-start gap-2 group py-1"
+      draggable
+      onDragStart={handleDragStart}
+      className="flex items-start gap-2 group py-1 cursor-grab active:cursor-grabbing"
     >
       <button
         onClick={() => onToggle(todo)}

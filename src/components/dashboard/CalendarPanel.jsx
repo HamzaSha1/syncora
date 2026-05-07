@@ -1,9 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { format, addDays, subDays, isToday } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
+import TaskEventBlock from './TaskEventBlock';
+
+// Distinct task colors
+const TASK_COLORS = [
+  '#e05a77','#e0875a','#c4a020','#5ab85a','#5ab8c4','#5a7ae0','#a05ae0','#e05ab8',
+  '#b84040','#40b870','#4070b8','#b840b8','#40b8b8','#b8a040','#7040b8','#b87040',
+];
+let colorIdx = 0;
+function nextColor() {
+  const c = TASK_COLORS[colorIdx % TASK_COLORS.length];
+  colorIdx++;
+  return c;
+}
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -69,7 +82,10 @@ export default function CalendarPanel({ selectedDate, onDateChange }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [taskEvents, setTaskEvents] = useState([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const scrollRef = useRef(null);
+  const gridRef = useRef(null);
 
   const fetchEvents = useCallback(async (d) => {
     setLoading(true);
@@ -100,6 +116,40 @@ export default function CalendarPanel({ selectedDate, onDateChange }) {
   }, [date, loading]);
 
   const goToDay = (d) => { setDate(d); onDateChange?.(d); };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => setIsDragOver(false);
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const text = e.dataTransfer.getData('text/plain');
+    if (!text || !gridRef.current) return;
+
+    const rect = gridRef.current.getBoundingClientRect();
+    const relY = e.clientY - rect.top + gridRef.current.parentElement.scrollTop;
+    const rawHour = (relY / 1152) * 24;
+    // Snap to nearest 15 min
+    const snappedHour = Math.round(rawHour * 4) / 4;
+    const startHour = Math.max(0, Math.min(snappedHour, 23.75));
+
+    setTaskEvents((prev) => [
+      ...prev,
+      { id: Date.now(), text, startHour, durationHours: 0.5, color: nextColor() },
+    ]);
+  };
+
+  const handleResize = (id, newDuration) => {
+    setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, durationHours: newDuration } : te));
+  };
+
+  const handleRemove = (id) => {
+    setTaskEvents((prev) => prev.filter((te) => te.id !== id));
+  };
 
   // Sync when parent changes selected date
   useEffect(() => { if (selectedDate) setDate(selectedDate); }, [selectedDate]);
@@ -152,7 +202,14 @@ export default function CalendarPanel({ selectedDate, onDateChange }) {
             <Button size="sm" variant="outline" onClick={() => fetchEvents(date)}>Retry</Button>
           </div>
         ) : (
-          <div className="relative" style={{ height: '1152px' }}>
+          <div
+            ref={gridRef}
+            className="relative"
+            style={{ height: '1152px', outline: isDragOver ? '2px dashed hsl(var(--primary))' : 'none', borderRadius: '8px' }}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             {/* Hour lines */}
             {HOURS.map((hour) => (
               <div
@@ -195,7 +252,7 @@ export default function CalendarPanel({ selectedDate, onDateChange }) {
                   {events.map((event) => (
                     <EventBlock key={event.id} event={event} allEvents={events} />
                   ))}
-                  {events.length === 0 && !loading && (
+                  {events.length === 0 && taskEvents.length === 0 && !loading && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -206,6 +263,10 @@ export default function CalendarPanel({ selectedDate, onDateChange }) {
                   )}
                 </AnimatePresence>
               )}
+              {/* Task events dropped from todo list */}
+              {taskEvents.map((te) => (
+                <TaskEventBlock key={te.id} taskEvent={te} onResize={handleResize} onRemove={handleRemove} />
+              ))}
 
               {/* Current time indicator */}
               {currentTimePercent !== null && currentTimePercent >= 0 && currentTimePercent <= 100 && (
