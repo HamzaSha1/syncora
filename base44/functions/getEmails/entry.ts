@@ -10,11 +10,12 @@ Deno.serve(async (req) => {
 
     const { accessToken } = await base44.asServiceRole.connectors.getConnection('outlook');
 
-    const filter = query
-      ? `&$search="subject:${query} OR from:${query}"`
-      : '';
-
-    const url = `https://graph.microsoft.com/v1.0/me/messages?$top=20&$orderby=receivedDateTime desc&$select=id,subject,from,receivedDateTime,webLink${filter}`;
+    let url;
+    if (query) {
+      url = `https://graph.microsoft.com/v1.0/me/messages?$top=200&$select=id,subject,from,receivedDateTime,webLink&$search="subject:${query} OR from:${query}"`;
+    } else {
+      url = `https://graph.microsoft.com/v1.0/me/messages?$top=200&$orderby=receivedDateTime desc&$select=id,subject,from,receivedDateTime,webLink`;
+    }
 
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
