@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import CalendarPanel from '@/components/dashboard/CalendarPanel';
 import TodoPanel from '@/components/dashboard/TodoPanel';
 import MonthlyCalendarPanel from '@/components/dashboard/MonthlyCalendarPanel';
 import AdvisorPanel from '@/components/dashboard/AdvisorPanel';
 import { format } from 'date-fns';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import { dragState } from '@/lib/dragState';
 
 function ResizeHandle({ direction = 'horizontal' }) {
   return (
@@ -16,9 +17,40 @@ function ResizeHandle({ direction = 'horizontal' }) {
 
 export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isDraggingTodo, setIsDraggingTodo] = useState(false);
+  const [dropOverlay, setDropOverlay] = useState(false);
+  const calendarPanelRef = useRef(null);
+  const onDropToCalendar = useRef(null); // callback set by CalendarPanel
+
+  const handleTodoDragStart = useCallback(() => {
+    setIsDraggingTodo(true);
+    setDropOverlay(true);
+  }, []);
+
+  const handleTodoDragEnd = useCallback(() => {
+    setIsDraggingTodo(false);
+    setDropOverlay(false);
+  }, []);
 
   return (
-    <div className="bg-background p-4 flex flex-col gap-2" style={{ height: '100vh', overflow: 'hidden' }}>
+    <div className="bg-background p-4 flex flex-col gap-2 relative" style={{ height: '100vh', overflow: 'hidden' }}>
+      {/* Full-screen drag overlay - captures drops anywhere and forwards to calendar */}
+      {isDraggingTodo && (
+        <div
+          className="absolute inset-0 z-50"
+          style={{ pointerEvents: 'all' }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            handleTodoDragEnd();
+            if (onDropToCalendar.current) {
+              onDropToCalendar.current(e.clientX, e.clientY);
+            }
+          }}
+          onDragEnd={handleTodoDragEnd}
+        />
+      )}
+
       {/* Top date bar */}
       <div className="shrink-0">
         <h1 className="text-xl font-semibold text-foreground">{format(new Date(), 'EEEE')}</h1>
@@ -30,8 +62,13 @@ export default function Dashboard() {
 
         {/* Top: Calendar */}
         <Panel defaultSize={35} minSize={10}>
-          <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <CalendarPanel selectedDate={selectedDate} onDateChange={setSelectedDate} />
+          <div ref={calendarPanelRef} className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+            <CalendarPanel
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              isDraggingTodo={isDraggingTodo}
+              registerDropHandler={(fn) => { onDropToCalendar.current = fn; }}
+            />
           </div>
         </Panel>
 
@@ -42,7 +79,7 @@ export default function Dashboard() {
           <PanelGroup direction="horizontal" className="h-full">
             <Panel defaultSize={45} minSize={15}>
               <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <TodoPanel />
+                <TodoPanel onDragStart={handleTodoDragStart} onDragEnd={handleTodoDragEnd} />
               </div>
             </Panel>
             <ResizeHandle direction="horizontal" />

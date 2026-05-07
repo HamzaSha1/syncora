@@ -78,13 +78,12 @@ function EventBlock({ event }) {
   );
 }
 
-export default function CalendarPanel({ selectedDate, onDateChange }) {
+export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTodo, registerDropHandler }) {
   const [date, setDate] = useState(selectedDate || new Date());
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [taskEvents, setTaskEvents] = useState([]);
-  const [isDragOver, setIsDragOver] = useState(false);
   const scrollRef = useRef(null);
   const gridRef = useRef(null);
 
@@ -118,26 +117,15 @@ export default function CalendarPanel({ selectedDate, onDateChange }) {
 
   const goToDay = (d) => { setDate(d); onDateChange?.(d); };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = () => setIsDragOver(false);
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const text = dragState.get() || e.dataTransfer.getData('text/plain');
+  const handleExternalDrop = useCallback((clientX, clientY) => {
+    const text = dragState.get();
     dragState.clear();
     if (!text || !gridRef.current) return;
 
     const rect = gridRef.current.getBoundingClientRect();
-    // scrollRef.current is the scrollable container; get its scrollTop
     const scrollTop = scrollRef.current ? scrollRef.current.scrollTop : 0;
-    const relY = (e.clientY - rect.top) + scrollTop;
+    const relY = (clientY - rect.top) + scrollTop;
     const rawHour = (relY / 1152) * 24;
-    // Snap to nearest 15 min
     const snappedHour = Math.round(rawHour * 4) / 4;
     const startHour = Math.max(0, Math.min(snappedHour, 23.75));
 
@@ -145,7 +133,11 @@ export default function CalendarPanel({ selectedDate, onDateChange }) {
       ...prev,
       { id: Date.now(), text, startHour, durationHours: 0.5, color: nextColor() },
     ]);
-  };
+  }, []);
+
+  useEffect(() => {
+    registerDropHandler?.(handleExternalDrop);
+  }, [registerDropHandler, handleExternalDrop]);
 
   const handleResize = (id, newDuration) => {
     setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, durationHours: newDuration } : te));
@@ -209,10 +201,7 @@ export default function CalendarPanel({ selectedDate, onDateChange }) {
           <div
             ref={gridRef}
             className="relative"
-            style={{ height: '1152px', outline: isDragOver ? '2px dashed hsl(var(--primary))' : 'none', borderRadius: '8px' }}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
+            style={{ height: '1152px', outline: isDraggingTodo ? '2px dashed hsl(var(--primary))' : 'none', borderRadius: '8px' }}
           >
             {/* Hour lines */}
             {HOURS.map((hour) => (

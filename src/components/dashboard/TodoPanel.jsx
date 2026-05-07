@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import NotesTab from './NotesTab';
 
-export default function TodoPanel() {
+export default function TodoPanel({ onDragStart, onDragEnd }) {
   const [activeTab, setActiveTab] = useState('todos');
   const [todos, setTodos] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -344,7 +344,7 @@ export default function TodoPanel() {
           <>
             <AnimatePresence>
               {active.map((todo) => (
-                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} />
+                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} />
               ))}
             </AnimatePresence>
             {done.length > 0 && (
@@ -352,7 +352,7 @@ export default function TodoPanel() {
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest pt-2 pb-1">Completed</p>
                 <AnimatePresence>
                   {done.map((todo) => (
-                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} />
+                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} />
                   ))}
                 </AnimatePresence>
               </>
@@ -397,7 +397,7 @@ function ImportancePicker({ value, onChange }) {
   );
 }
 
-function TodoItem({ todo, onToggle, onDelete, onSetImportance }) {
+function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDragEnd }) {
   const imp = todo.importance ?? 3;
   const [showPicker, setShowPicker] = useState(false);
 
@@ -405,6 +405,11 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance }) {
     dragState.set(todo.text);
     e.dataTransfer.setData('text/plain', todo.text);
     e.dataTransfer.effectAllowed = 'copy';
+    onDragStart?.();
+  };
+
+  const handleDragEnd = () => {
+    onDragEnd?.();
   };
 
   return (
@@ -415,6 +420,7 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance }) {
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
       draggable
       onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       className="flex items-start gap-2 group py-1 cursor-grab active:cursor-grabbing"
     >
       <button
