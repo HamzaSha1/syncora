@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 const GRID_HEIGHT = 1152;
 
@@ -20,23 +20,19 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
     e.preventDefault();
     e.stopPropagation();
     setDragging(true);
-
     const startY = e.clientY;
     const startHour = taskEvent.startHour;
-
     const onMove_ = (me) => {
       const dy = me.clientY - startY;
       const deltaHours = (dy / GRID_HEIGHT) * 24;
       const snapped = Math.round((startHour + deltaHours) * 4) / 4;
       onMove(taskEvent.id, Math.max(0, Math.min(snapped, 24 - taskEvent.durationHours)));
     };
-
     const onUp = () => {
       setDragging(false);
       window.removeEventListener('mousemove', onMove_);
       window.removeEventListener('mouseup', onUp);
     };
-
     window.addEventListener('mousemove', onMove_);
     window.addEventListener('mouseup', onUp);
   };
@@ -46,23 +42,19 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
     e.preventDefault();
     e.stopPropagation();
     setResizing(true);
-
     const startY = e.clientY;
     const startDuration = taskEvent.durationHours;
-
     const onMove_ = (me) => {
       const dy = me.clientY - startY;
       const deltaHours = (dy / GRID_HEIGHT) * 24;
       const snapped = Math.round((startDuration + deltaHours) * 4) / 4;
       onResize(taskEvent.id, Math.max(0.25, Math.min(snapped, 24 - taskEvent.startHour)));
     };
-
     const onUp = () => {
       setResizing(false);
       window.removeEventListener('mousemove', onMove_);
       window.removeEventListener('mouseup', onUp);
     };
-
     window.addEventListener('mousemove', onMove_);
     window.addEventListener('mouseup', onUp);
   };
@@ -70,7 +62,7 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
   const topPct = (taskEvent.startHour / 24) * 100;
   const heightPct = (taskEvent.durationHours / 24) * 100;
   const endHour = taskEvent.startHour + taskEvent.durationHours;
-  const isShort = taskEvent.durationHours <= 0.4;
+  const isShort = taskEvent.durationHours < 0.5;
   const done = taskEvent.completed;
 
   return (
@@ -80,36 +72,38 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
         top: `${topPct}%`,
         height: `${heightPct}%`,
         backgroundColor: taskEvent.color,
-        opacity: done ? 0.5 : dragging ? 0.75 : 0.9,
+        opacity: done ? 0.55 : dragging ? 0.75 : 0.92,
         zIndex: dragging || resizing ? 30 : 20,
-        minHeight: '18px',
+        minHeight: '40px',
         cursor: done ? 'default' : dragging ? 'grabbing' : 'grab',
       }}
       onMouseDown={handleBodyMouseDown}
     >
-      <div className="px-2 py-1 h-full flex flex-col justify-between pointer-events-none">
-        <div className="flex items-start gap-1">
+      {/* Main content */}
+      <div className="px-2 pt-1.5 pb-5 flex flex-col gap-0.5 pointer-events-none">
+        {/* Top row: checkbox + title + remove */}
+        <div className="flex items-center gap-1.5">
           {/* Checkbox */}
           <button
-            className="pointer-events-auto shrink-0 mt-0.5 w-3 h-3 rounded-sm border border-white/70 flex items-center justify-center transition-colors hover:bg-white/30"
-            style={{ backgroundColor: done ? 'rgba(255,255,255,0.6)' : 'transparent' }}
+            className="pointer-events-auto shrink-0 w-4 h-4 rounded border-2 border-white/80 flex items-center justify-center transition-all hover:border-white hover:bg-white/20"
+            style={{ backgroundColor: done ? 'rgba(255,255,255,0.75)' : 'transparent' }}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => { if (!done) onComplete(taskEvent.id, taskEvent.todoId); }}
             title="Mark as done"
           >
             {done && (
-              <svg viewBox="0 0 10 10" className="w-2 h-2" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="1.5,5 4,7.5 8.5,2" />
+              <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" fill="none" stroke={taskEvent.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1.5,5 3.8,7.5 8.5,2" />
               </svg>
             )}
           </button>
 
-          <p className={`font-semibold text-white leading-tight truncate flex-1 ${isShort ? 'text-[9px]' : 'text-[11px]'} ${done ? 'line-through opacity-70' : ''}`}>
+          <p className={`font-semibold text-white leading-tight truncate flex-1 text-[11px] ${done ? 'line-through opacity-60' : ''}`}>
             {taskEvent.text}
           </p>
 
           <button
-            className="text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-[10px] leading-none pointer-events-auto"
+            className="pointer-events-auto shrink-0 text-white/50 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity text-[11px] leading-none"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => onRemove(taskEvent.id)}
           >
@@ -117,8 +111,9 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
           </button>
         </div>
 
+        {/* Time row */}
         {!isShort && (
-          <p className={`text-[9px] text-white/80 ${done ? 'opacity-50' : ''}`}>
+          <p className={`text-[9px] text-white/75 pl-5 ${done ? 'opacity-50' : ''}`}>
             {formatHour(taskEvent.startHour)} – {formatHour(endHour)}
           </p>
         )}
@@ -128,8 +123,8 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
       {!done && (
         <div
           onMouseDown={handleResizeMouseDown}
-          className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize flex items-center justify-center pointer-events-auto"
-          style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}
+          className="pointer-events-auto absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.12)' }}
         >
           <div className="w-8 h-0.5 rounded-full bg-white/50" />
         </div>

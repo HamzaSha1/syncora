@@ -128,7 +128,7 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
     const todoId = dragState.todoId;
     setTaskEvents((prev) => [
       ...prev,
-      { id: Date.now(), text, todoId, startHour, durationHours: 0.5, color: nextColor() },
+      { id: Date.now(), text, todoId, startHour, durationHours: 1, color: nextColor() },
     ]);
   }, []);
 
