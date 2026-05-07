@@ -88,7 +88,7 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
             className="pointer-events-auto shrink-0 w-4 h-4 rounded border-2 border-white/80 flex items-center justify-center transition-all hover:border-white hover:bg-white/20"
             style={{ backgroundColor: done ? 'rgba(255,255,255,0.75)' : 'transparent' }}
             onMouseDown={(e) => e.stopPropagation()}
-            onClick={() => { if (!done) onComplete(taskEvent.id, taskEvent.todoId); }}
+            onClick={() => onComplete(taskEvent.id, taskEvent.todoId, !done)}
             title="Mark as done"
           >
             {done && (

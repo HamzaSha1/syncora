@@ -33,10 +33,10 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
     });
   }, []);
 
-  // Register callback so CalendarPanel can mark todos as done
+  // Register callback so CalendarPanel can toggle todo completion
   useEffect(() => {
-    todoSync.onTodoCompleted = (todoId) => {
-      setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, completed: true } : t));
+    todoSync.onTodoCompleted = (todoId, completed) => {
+      setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, completed } : t));
     };
     return () => { todoSync.onTodoCompleted = null; };
   }, []);

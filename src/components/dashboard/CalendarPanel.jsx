@@ -115,17 +115,16 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
 
   const handleExternalDrop = useCallback((clientX, clientY) => {
     const text = dragState.get();
+    const todoId = dragState.todoId; // read before clear()
     dragState.clear();
     if (!text || !gridRef.current) return;
 
-    // getBoundingClientRect already accounts for scroll, so no need to add scrollTop
     const rect = gridRef.current.getBoundingClientRect();
     const relY = clientY - rect.top;
     const rawHour = (relY / 1152) * 24;
     const snappedHour = Math.round(rawHour * 4) / 4;
     const startHour = Math.max(0, Math.min(snappedHour, 23.75));
 
-    const todoId = dragState.todoId;
     setTaskEvents((prev) => [
       ...prev,
       { id: Date.now(), text, todoId, startHour, durationHours: 1, color: nextColor() },
@@ -136,14 +135,14 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
     registerDropHandler?.(handleExternalDrop);
   }, [registerDropHandler, handleExternalDrop]);
 
-  const handleComplete = async (id, todoId) => {
-    setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, completed: true } : te));
+  const handleComplete = async (id, todoId, newCompleted) => {
+    setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, completed: newCompleted } : te));
     if (todoId) {
       try {
-        await base44.entities.Todo.update(todoId, { completed: true });
-        todoSync.onTodoCompleted?.(todoId);
+        await base44.entities.Todo.update(todoId, { completed: newCompleted });
+        todoSync.onTodoCompleted?.(todoId, newCompleted);
       } catch (err) {
-        console.error('Failed to mark todo as done:', err);
+        console.error('Failed to update todo:', err);
       }
     }
   };
