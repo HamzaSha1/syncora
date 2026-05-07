@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { Mail, Paperclip } from 'lucide-react';
+import { Mail, Paperclip, FileText, File } from 'lucide-react';
+
+function attIcon(att) {
+  if (att.type === 'file') {
+    const ext = (att.subject || '').split('.').pop().toLowerCase();
+    if (['pdf', 'doc', 'docx'].includes(ext)) return <FileText className="w-2 h-2 shrink-0" />;
+    return <File className="w-2 h-2 shrink-0" />;
+  }
+  return <Mail className="w-2 h-2 shrink-0" />;
+}
 
 const GRID_HEIGHT = 1152;
 // snap to nearest 5-minute increment
@@ -179,7 +188,7 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
                   className="inline-flex items-center gap-0.5 bg-black/15 hover:bg-black/25 text-white rounded px-1 py-0.5 text-[9px] max-w-[120px] transition-colors pointer-events-auto"
                   title={att.subject}
                 >
-                  <Mail className="w-2 h-2 shrink-0" />
+                  {attIcon(att)}
                   <span className="truncate">{att.subject}</span>
                 </a>
               ))}

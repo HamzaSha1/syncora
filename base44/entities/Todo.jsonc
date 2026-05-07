@@ -29,8 +29,23 @@
       "description": "The OneNote page ID this todo came from"
     },
     "attachments": {
-      "type": "string",
-      "description": "JSON-encoded array of attachment objects: [{type,id,subject,from,fromName,date,webLink}]"
+      "type": "array",
+      "description": "Files attached to this todo (emails, PDFs, Word docs, etc.)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "description": "mime type or file extension"
+          }
+        }
+      }
     }
   },
   "required": [
