@@ -462,12 +462,27 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
           {todo.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
         </button>
         <div className="flex-1 min-w-0">
-          <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-            {todo.text}
-            {todo.onenote_element_id && (
-              <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
-            )}
-          </span>
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+              {todo.text}
+              {todo.onenote_element_id && (
+                <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
+              )}
+            </span>
+            {parseAttachments(todo.attachments).map((att) => (
+              <a
+                key={att.id}
+                href={att.webLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-0.5 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1 py-0.5 text-[10px] max-w-[140px] transition-colors shrink-0"
+                title={att.subject}
+              >
+                <Mail className="w-2.5 h-2.5 shrink-0" />
+                <span className="truncate">{att.subject}</span>
+              </a>
+            ))}
+          </div>
           {!todo.completed && showImportancePicker && (
             <div className="flex items-center gap-1 mt-1">
               <ImportancePicker value={imp} onChange={(v) => { onSetImportance(todo, v); setShowImportancePicker(false); }} />
@@ -502,28 +517,12 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
-      {parseAttachments(todo.attachments).length > 0 && (
-        <div className="pl-6 flex flex-wrap gap-1 pb-1">
-          {parseAttachments(todo.attachments).map((att) => (
-            <a
-              key={att.id}
-              href={att.webLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1.5 py-0.5 text-[10px] max-w-[200px] transition-colors"
-              title={att.subject}
-            >
-              <Mail className="w-2.5 h-2.5 shrink-0" />
-              <span className="truncate">{att.subject}</span>
-            </a>
-          ))}
-        </div>
-      )}
       {showAttachPicker && (
         <AttachmentPicker
           attachments={parseAttachments(todo.attachments)}
           onChange={async (newAtts) => {
             onAttachmentsChange(todo.id, newAtts);
+            setShowAttachPicker(false);
             await base44.entities.Todo.update(todo.id, { attachments: newAtts });
           }}
           onClose={() => setShowAttachPicker(false)}
