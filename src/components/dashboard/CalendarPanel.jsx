@@ -131,7 +131,9 @@ export default function CalendarPanel({ selectedDate, onDateChange }) {
     if (!text || !gridRef.current) return;
 
     const rect = gridRef.current.getBoundingClientRect();
-    const relY = e.clientY - rect.top + gridRef.current.parentElement.scrollTop;
+    // scrollRef.current is the scrollable container; get its scrollTop
+    const scrollTop = scrollRef.current ? scrollRef.current.scrollTop : 0;
+    const relY = (e.clientY - rect.top) + scrollTop;
     const rawHour = (relY / 1152) * 24;
     // Snap to nearest 15 min
     const snappedHour = Math.round(rawHour * 4) / 4;
