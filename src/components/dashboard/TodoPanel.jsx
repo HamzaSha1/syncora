@@ -2,11 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { dragState } from '@/lib/dragState';
 import { todoSync } from '@/lib/todoSync';
 import { base44 } from '@/api/base44Client';
-import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText } from 'lucide-react';
+import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText, Paperclip, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import NotesTab from './NotesTab';
+import AttachmentPicker from './AttachmentPicker';
+
+const parseAttachments = (raw) => { try { return raw ? JSON.parse(raw) : []; } catch { return []; } };
 
 export default function TodoPanel({ onDragStart, onDragEnd }) {
   const [activeTab, setActiveTab] = useState('todos');
@@ -21,7 +24,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
   const [pages, setPages] = useState([]);
   const [selectedPageId, setSelectedPageId] = useState(() => localStorage.getItem('todo_onenote_page') || null);
   const [selectedPageTitle, setSelectedPageTitle] = useState(() => localStorage.getItem('todo_onenote_page_title') || null);
-  const [showPicker, setShowPicker] = useState(false);
+  const [showImportance, setShowImportance] = useState(false);
   const [pagesLoading, setPagesLoading] = useState(false);
   const syncIntervalRef = useRef(null);
 
@@ -144,7 +147,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
   };
 
   const openPicker = async () => {
-    setShowPicker(true);
+    setShowImportance(true);
     setPagesLoading(true);
     try {
       const res = await base44.functions.invoke('getOneNotePages', {});
@@ -161,7 +164,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
     setSelectedPageTitle(page.title);
     localStorage.setItem('todo_onenote_page', page.id);
     localStorage.setItem('todo_onenote_page_title', page.title);
-    setShowPicker(false);
+    setShowImportance(false);
     importFromOneNote(page.id);
   };
 
@@ -173,8 +176,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
     localStorage.removeItem('todo_onenote_page_title');
   };
 
-  const addTodo = async (e) => {
-    e.preventDefault();
+  const doAddTodo = async () => {
     if (!inputText.trim()) return;
     const newTodo = await base44.entities.Todo.create({
       text: inputText.trim(),
@@ -185,6 +187,11 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
     setTodos((prev) => [...prev, newTodo]);
     setInputText('');
     setInputImportance(3);
+  };
+
+  const addTodo = async (e) => {
+    e.preventDefault();
+    await doAddTodo();
   };
 
   const toggleTodo = async (todo) => {
@@ -211,6 +218,10 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
   const setImportance = async (todo, value) => {
     setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, importance: value } : t)));
     await base44.entities.Todo.update(todo.id, { importance: value });
+  };
+
+  const handleAttachmentsChange = (todoId, attachments) => {
+    setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, attachments: JSON.stringify(attachments) } : t));
   };
 
   const active = todos
@@ -292,7 +303,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
 
       {/* Page picker dropdown */}
       <AnimatePresence>
-        {showPicker && (
+        {showImportance && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -333,6 +344,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Add a task…"
             className="h-8 text-sm"
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); doAddTodo(); } }}
           />
           <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
             <Plus className="w-4 h-4" />
@@ -353,7 +365,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
           <>
             <AnimatePresence>
               {active.map((todo) => (
-                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} onAttachmentsChange={handleAttachmentsChange} />
               ))}
             </AnimatePresence>
             {done.length > 0 && (
@@ -361,7 +373,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest pt-2 pb-1">Completed</p>
                 <AnimatePresence>
                   {done.map((todo) => (
-                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} onAttachmentsChange={handleAttachmentsChange} />
                   ))}
                 </AnimatePresence>
               </>
@@ -406,12 +418,13 @@ function ImportancePicker({ value, onChange }) {
   );
 }
 
-function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDragEnd }) {
+function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDragEnd, onAttachmentsChange }) {
   const imp = todo.importance ?? 3;
-  const [showPicker, setShowPicker] = useState(false);
+  const [showImportancePicker, setShowImportancePicker] = useState(false);
+  const [showAttachPicker, setShowAttachPicker] = useState(false);
 
   const handleDragStart = (e) => {
-    dragState.set(todo.text, todo.id);
+    dragState.set(todo.text, todo.id, parseAttachments(todo.attachments));
     e.dataTransfer.setData('text/plain', todo.text);
     e.dataTransfer.effectAllowed = 'copy';
     onDragStart?.();
@@ -451,15 +464,15 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
               <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
             )}
           </span>
-          {!todo.completed && showPicker && (
+          {!todo.completed && showImportancePicker && (
             <div className="flex items-center gap-1 mt-1">
-              <ImportancePicker value={imp} onChange={(v) => { onSetImportance(todo, v); setShowPicker(false); }} />
+              <ImportancePicker value={imp} onChange={(v) => { onSetImportance(todo, v); setShowImportancePicker(false); }} />
             </div>
           )}
         </div>
         {!todo.completed && (
           <button
-            onClick={() => setShowPicker((p) => !p)}
+            onClick={() => setShowImportancePicker((p) => !p)}
             className={`text-[10px] font-bold w-4 h-4 rounded flex items-center justify-center shrink-0 mt-0.5 transition-all hover:scale-110 ${IMPORTANCE_COLORS[imp]}`}
             title="Change priority"
           >
@@ -467,12 +480,52 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
           </button>
         )}
         <button
+          onClick={(e) => { e.stopPropagation(); setShowAttachPicker((p) => !p); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className={`shrink-0 transition-opacity ${
+            parseAttachments(todo.attachments).length > 0
+              ? 'opacity-70 text-primary'
+              : 'opacity-0 group-hover:opacity-60 text-muted-foreground'
+          } hover:opacity-100`}
+          title="Attach email"
+        >
+          <Paperclip className="w-3.5 h-3.5" />
+        </button>
+        <button
           onClick={() => onDelete(todo.id)}
           className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
+      {parseAttachments(todo.attachments).length > 0 && (
+        <div className="pl-6 flex flex-wrap gap-1 pb-1">
+          {parseAttachments(todo.attachments).map((att) => (
+            <a
+              key={att.id}
+              href={att.webLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1.5 py-0.5 text-[10px] max-w-[200px] transition-colors"
+              title={att.subject}
+            >
+              <Mail className="w-2.5 h-2.5 shrink-0" />
+              <span className="truncate">{att.subject}</span>
+            </a>
+          ))}
+        </div>
+      )}
+      {showAttachPicker && (
+        <AttachmentPicker
+          attachments={parseAttachments(todo.attachments)}
+          onChange={async (newAtts) => {
+            const encoded = JSON.stringify(newAtts);
+            onAttachmentsChange(todo.id, newAtts);
+            await base44.entities.Todo.update(todo.id, { attachments: encoded });
+          }}
+          onClose={() => setShowAttachPicker(false)}
+        />
+      )}
     </motion.div>
   );
 }

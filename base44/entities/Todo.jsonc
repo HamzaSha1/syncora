@@ -27,6 +27,10 @@
     "onenote_page_id": {
       "type": "string",
       "description": "The OneNote page ID this todo came from"
+    },
+    "attachments": {
+      "type": "string",
+      "description": "JSON-encoded array of attachment objects: [{type,id,subject,from,fromName,date,webLink}]"
     }
   },
   "required": [

@@ -2,7 +2,12 @@
 export const dragState = {
   text: null,
   todoId: null,
-  set(text, todoId) { this.text = text; this.todoId = todoId ?? null; },
+  attachments: null,
+  set(text, todoId, attachments) {
+    this.text = text;
+    this.todoId = todoId ?? null;
+    this.attachments = attachments ?? null;
+  },
   get() { return this.text; },
-  clear() { this.text = null; this.todoId = null; },
+  clear() { this.text = null; this.todoId = null; this.attachments = null; },
 };
