@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Calendar, MapPin, RefreshCw } from 'lucide-r
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskEventBlock from './TaskEventBlock';
+import EditEventModal from './EditEventModal';
 
 const TASK_COLORS = [
   '#e05a77','#e0875a','#c4a020','#5ab85a','#5ab8c4','#5a7ae0','#a05ae0','#e05ab8',
@@ -44,7 +45,7 @@ function getEventStyle(event) {
   return { top: `${top}%`, height: `${Math.max(height, 1.5)}%` };
 }
 
-function EventBlock({ event }) {
+function EventBlock({ event, onClick }) {
   const start = toLocal(event.start.dateTime || event.start.date, event.start.timeZone);
   const end = toLocal(event.end.dateTime || event.end.date, event.end.timeZone);
   const style = getEventStyle(event);
@@ -54,7 +55,8 @@ function EventBlock({ event }) {
     <motion.div
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
-      className="absolute left-0 right-0 mx-1 rounded-md bg-primary/90 text-primary-foreground px-2 py-1 overflow-hidden cursor-default group hover:bg-primary transition-colors shadow-sm"
+      onClick={onClick}
+      className="absolute left-0 right-0 mx-1 rounded-md bg-primary/90 text-primary-foreground px-2 py-1 overflow-hidden cursor-pointer group hover:bg-primary transition-colors shadow-sm"
       style={style}
       title={event.subject}
     >
@@ -82,6 +84,7 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [taskEvents, setTaskEvents] = useState([]);
+  const [editingEvent, setEditingEvent] = useState(null);
   const scrollRef = useRef(null);
   const gridRef = useRef(null);
 
@@ -265,7 +268,7 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
               ) : (
                 <AnimatePresence>
                   {events.map((event) => (
-                    <EventBlock key={event.id} event={event} />
+                    <EventBlock key={event.id} event={event} onClick={() => setEditingEvent(event)} />
                   ))}
                   {events.length === 0 && taskEvents.length === 0 && !loading && (
                     <motion.div
@@ -297,6 +300,14 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
           </div>
         )}
       </div>
+      {editingEvent && (
+        <EditEventModal
+          event={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onSaved={() => fetchEvents(date)}
+          onDeleted={() => fetchEvents(date)}
+        />
+      )}
     </div>
   );
 }
