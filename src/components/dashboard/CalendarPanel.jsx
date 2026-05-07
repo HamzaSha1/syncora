@@ -150,7 +150,15 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
     : null;
 
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full"
+      onDragOver={(e) => { if (dragState.get()) e.preventDefault(); }}
+      onDrop={(e) => {
+        if (!dragState.get()) return;
+        e.preventDefault();
+        handleExternalDrop(e.clientX, e.clientY);
+      }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
@@ -188,12 +196,6 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
       <div
         ref={scrollRef}
         className={`flex-1 overflow-y-auto px-4 pb-4 transition-colors ${isDraggingTodo ? 'bg-primary/5' : ''}`}
-        onDragOver={(e) => { if (dragState.get()) e.preventDefault(); }}
-        onDrop={(e) => {
-          if (!dragState.get()) return;
-          e.preventDefault();
-          handleExternalDrop(e.clientX, e.clientY);
-        }}
       >
         {error ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2">

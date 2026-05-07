@@ -412,53 +412,58 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
     onDragEnd?.();
   };
 
+  // motion.div handles animation only; plain div handles native HTML5 drag
+  // (framer-motion v11 intercepts pointer events on motion elements which blocks native drag)
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-      draggable
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      className="flex items-start gap-2 group py-1 cursor-grab active:cursor-grabbing"
     >
-      <button
-        onClick={() => onToggle(todo)}
-        className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-          todo.completed ? 'bg-primary border-primary' : 'border-border hover:border-primary'
-        }`}
+      <div
+        draggable="true"
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        className="flex items-start gap-2 group py-1 cursor-grab active:cursor-grabbing"
       >
-        {todo.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
-      </button>
-      <div className="flex-1 min-w-0">
-        <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-          {todo.text}
-          {todo.onenote_element_id && (
-            <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
-          )}
-        </span>
-        {!todo.completed && showPicker && (
-          <div className="flex items-center gap-1 mt-1">
-            <ImportancePicker value={imp} onChange={(v) => { onSetImportance(todo, v); setShowPicker(false); }} />
-          </div>
-        )}
-      </div>
-      {!todo.completed && (
         <button
-          onClick={() => setShowPicker((p) => !p)}
-          className={`text-[10px] font-bold w-4 h-4 rounded flex items-center justify-center shrink-0 mt-0.5 transition-all hover:scale-110 ${IMPORTANCE_COLORS[imp]}`}
-          title="Change priority"
+          onClick={() => onToggle(todo)}
+          className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+            todo.completed ? 'bg-primary border-primary' : 'border-border hover:border-primary'
+          }`}
         >
-          {imp}
+          {todo.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
         </button>
-      )}
-      <button
-        onClick={() => onDelete(todo.id)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
+        <div className="flex-1 min-w-0">
+          <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+            {todo.text}
+            {todo.onenote_element_id && (
+              <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
+            )}
+          </span>
+          {!todo.completed && showPicker && (
+            <div className="flex items-center gap-1 mt-1">
+              <ImportancePicker value={imp} onChange={(v) => { onSetImportance(todo, v); setShowPicker(false); }} />
+            </div>
+          )}
+        </div>
+        {!todo.completed && (
+          <button
+            onClick={() => setShowPicker((p) => !p)}
+            className={`text-[10px] font-bold w-4 h-4 rounded flex items-center justify-center shrink-0 mt-0.5 transition-all hover:scale-110 ${IMPORTANCE_COLORS[imp]}`}
+            title="Change priority"
+          >
+            {imp}
+          </button>
+        )}
+        <button
+          onClick={() => onDelete(todo.id)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </motion.div>
   );
 }
