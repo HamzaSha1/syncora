@@ -134,6 +134,10 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
     registerDropHandler?.(handleExternalDrop);
   }, [registerDropHandler, handleExternalDrop]);
 
+  const handleMove = (id, newStartHour) => {
+    setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, startHour: newStartHour } : te));
+  };
+
   const handleResize = (id, newDuration) => {
     setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, durationHours: newDuration } : te));
   };
@@ -263,7 +267,7 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
               )}
               {/* Dropped task events */}
               {taskEvents.map((te) => (
-                <TaskEventBlock key={te.id} taskEvent={te} onResize={handleResize} onRemove={handleRemove} />
+                <TaskEventBlock key={te.id} taskEvent={te} onMove={handleMove} onResize={handleResize} onRemove={handleRemove} />
               ))}
 
               {/* Current time indicator */}
