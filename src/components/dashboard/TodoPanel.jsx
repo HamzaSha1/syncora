@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { dragState } from '@/lib/dragState';
 import { base44 } from '@/api/base44Client';
 import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -401,6 +402,7 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance }) {
   const [showPicker, setShowPicker] = useState(false);
 
   const handleDragStart = (e) => {
+    dragState.set(todo.text);
     e.dataTransfer.setData('text/plain', todo.text);
     e.dataTransfer.effectAllowed = 'copy';
   };

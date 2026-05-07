@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { dragState } from '@/lib/dragState';
 import { base44 } from '@/api/base44Client';
 import { format, addDays, subDays, isToday } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, RefreshCw } from 'lucide-react';
@@ -127,7 +128,8 @@ export default function CalendarPanel({ selectedDate, onDateChange }) {
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
-    const text = e.dataTransfer.getData('text/plain');
+    const text = dragState.get() || e.dataTransfer.getData('text/plain');
+    dragState.clear();
     if (!text || !gridRef.current) return;
 
     const rect = gridRef.current.getBoundingClientRect();
