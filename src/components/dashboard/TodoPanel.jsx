@@ -438,8 +438,6 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
     onDragEnd?.();
   };
 
-  // motion.div handles animation only; plain div handles native HTML5 drag
-  // (framer-motion v11 intercepts pointer events on motion elements which blocks native drag)
   return (
     <motion.div
       layout
@@ -447,51 +445,47 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
     >
-      <div
-        draggable="true"
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        className="flex items-start gap-2 group py-1 cursor-grab active:cursor-grabbing"
-      >
-        <button
-          onClick={() => onToggle(todo)}
-          className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-            todo.completed ? 'bg-primary border-primary' : 'border-border hover:border-primary'
-          }`}
+      {/* Outer row — not draggable so attachment chips work as plain links */}
+      <div className="flex items-start gap-2 group py-1">
+        {/* Draggable handle: only checkbox + text */}
+        <div
+          draggable="true"
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          className="flex items-start gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
         >
-          {todo.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
-        </button>
-        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-          <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+          <button
+            onClick={() => onToggle(todo)}
+            className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+              todo.completed ? 'bg-primary border-primary' : 'border-border hover:border-primary'
+            }`}
+          >
+            {todo.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+          </button>
+          <span className={`text-sm leading-snug mt-0.5 ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
             {todo.text}
             {todo.onenote_element_id && (
               <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
             )}
           </span>
-          {parseAttachments(todo.attachments).map((att) => (
-            <span
-              key={att.id}
-              role="button"
-              tabIndex={0}
-              draggable={false}
-              onDragStart={(e) => e.preventDefault()}
-              onPointerDown={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); e.preventDefault(); att.webLink && window.open(att.webLink, '_blank', 'noopener,noreferrer'); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { att.webLink && window.open(att.webLink, '_blank', 'noopener,noreferrer'); } }}
-              className="inline-flex items-center gap-0.5 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1.5 py-0.5 text-[10px] max-w-[160px] transition-colors shrink-0 cursor-pointer select-none"
-              title={att.subject}
-            >
-              <Mail className="w-2.5 h-2.5 shrink-0 pointer-events-none" />
-              <span className="truncate pointer-events-none">{att.subject}</span>
-            </span>
-          ))}
-          {!todo.completed && showImportancePicker && (
-            <div className="flex items-center gap-1 mt-1 w-full">
-              <ImportancePicker value={imp} onChange={(v) => { onSetImportance(todo, v); setShowImportancePicker(false); }} />
-            </div>
-          )}
         </div>
+
+        {/* Attachment chips — outside draggable div, plain anchor tags */}
+        {parseAttachments(todo.attachments).map((att) => (
+          <a
+            key={att.id}
+            href={att.webLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-0.5 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1.5 py-0.5 text-[10px] max-w-[140px] transition-colors shrink-0 mt-0.5"
+            title={att.subject}
+          >
+            <Mail className="w-2.5 h-2.5 shrink-0" />
+            <span className="truncate">{att.subject}</span>
+          </a>
+        ))}
+
+        {/* Action buttons — outside draggable div */}
         {!todo.completed && (
           <button
             onClick={() => setShowImportancePicker((p) => !p)}
@@ -503,8 +497,7 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
         )}
         <button
           onClick={(e) => { e.stopPropagation(); setShowAttachPicker((p) => !p); }}
-          onMouseDown={(e) => e.stopPropagation()}
-          className={`shrink-0 transition-opacity ${
+          className={`shrink-0 transition-opacity mt-0.5 ${
             parseAttachments(todo.attachments).length > 0
               ? 'opacity-70 text-primary'
               : 'opacity-0 group-hover:opacity-60 text-muted-foreground'
@@ -515,11 +508,19 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
         </button>
         <button
           onClick={() => onDelete(todo.id)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0 mt-0.5"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Importance picker */}
+      {!todo.completed && showImportancePicker && (
+        <div className="pl-6 pb-1">
+          <ImportancePicker value={imp} onChange={(v) => { onSetImportance(todo, v); setShowImportancePicker(false); }} />
+        </div>
+      )}
+
       {showAttachPicker && (
         <AttachmentPicker
           attachments={parseAttachments(todo.attachments)}
