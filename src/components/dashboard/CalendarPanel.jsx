@@ -1,10 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { dragState } from '@/lib/dragState';
 import { base44 } from '@/api/base44Client';
 import { format, addDays, subDays, isToday } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
-import dragState from '@/lib/dragState';
+import TaskEventBlock from './TaskEventBlock';
+
+const TASK_COLORS = [
+  '#e05a77','#e0875a','#c4a020','#5ab85a','#5ab8c4','#5a7ae0','#a05ae0','#e05ab8',
+  '#b84040','#40b870','#4070b8','#b840b8','#40b8b8','#b8a040','#7040b8','#b87040',
+];
+let colorIdx = 0;
+function nextColor() {
+  const c = TASK_COLORS[colorIdx % TASK_COLORS.length];
+  colorIdx++;
+  return c;
+}
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const GRID_HEIGHT = 1152; // px — matches the time grid div
@@ -16,15 +28,8 @@ function toLocal(dateTimeStr, timeZone) {
   return new Date(dateTimeStr);
 }
 
-function hourToLabel(h) {
-  const hour = Math.floor(h);
-  const min = Math.round((h - hour) * 60);
-  const ampm = hour < 12 ? 'AM' : 'PM';
-  const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  return `${h12}:${min.toString().padStart(2, '0')} ${ampm}`;
-}
-
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const HALF_HOURS = Array.from({ length: 24 }, (_, i) => i + 0.5);
 
 // ── Outlook calendar event block ──────────────────────────────────────────────
 
@@ -70,55 +75,14 @@ function EventBlock({ event }) {
   );
 }
 
-// ── Dropped task event block ──────────────────────────────────────────────────
-
-function TaskEventBlock({ event, onRemove, onStartResize }) {
-  const endHour = event.startHour + event.durationHours;
-  const top = (event.startHour / 24) * 100;
-  const height = (event.durationHours / 24) * 100;
-  const isShort = event.durationHours <= 0.5;
-
-  return (
-    <div
-      className="absolute left-0 right-0 mx-1 rounded-md px-2 py-1 overflow-hidden cursor-default group shadow-sm select-none"
-      style={{ top: `${top}%`, height: `${Math.max(height, 1.5)}%`, backgroundColor: event.color, color: '#fff' }}
-    >
-      <button
-        onClick={() => onRemove(event.id)}
-        className="absolute top-0.5 right-1 text-white/60 hover:text-white text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
-        title="Remove"
-      >
-        ✕
-      </button>
-      <p className={`font-medium leading-tight truncate pr-4 ${isShort ? 'text-[10px]' : 'text-xs'}`}>
-        {event.text}
-      </p>
-      {!isShort && (
-        <p className="text-[10px] opacity-80">
-          {hourToLabel(event.startHour)} – {hourToLabel(endHour)}
-        </p>
-      )}
-      {/* Resize handle */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onStartResize(event.id, e.clientY); }}
-      >
-        <div className="w-8 h-0.5 rounded-full bg-white/60" />
-      </div>
-    </div>
-  );
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
-
-export default function CalendarPanel({ isDragging }) {
-  const [date, setDate] = useState(new Date());
+export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTodo, registerDropHandler }) {
+  const [date, setDate] = useState(selectedDate || new Date());
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [taskEvents, setTaskEvents] = useState([]);
   const scrollRef = useRef(null);
-  const resizeRef = useRef(null); // { eventId, startClientY }
+  const gridRef = useRef(null);
 
   const fetchEvents = useCallback(async (d) => {
     setLoading(true);
@@ -146,57 +110,39 @@ export default function CalendarPanel({ isDragging }) {
     }
   }, [date, loading]);
 
-  // Register drop handler so Dashboard overlay can call it
+  const goToDay = (d) => { setDate(d); onDateChange?.(d); };
+
+  const handleExternalDrop = useCallback((clientX, clientY) => {
+    const text = dragState.get();
+    dragState.clear();
+    if (!text || !gridRef.current) return;
+
+    const rect = gridRef.current.getBoundingClientRect();
+    const scrollTop = scrollRef.current ? scrollRef.current.scrollTop : 0;
+    const relY = (clientY - rect.top) + scrollTop;
+    const rawHour = (relY / 1152) * 24;
+    const snappedHour = Math.round(rawHour * 4) / 4;
+    const startHour = Math.max(0, Math.min(snappedHour, 23.75));
+
+    setTaskEvents((prev) => [
+      ...prev,
+      { id: Date.now(), text, startHour, durationHours: 0.5, color: nextColor() },
+    ]);
+  }, []);
+
   useEffect(() => {
-    dragState.dropHandler = (clientX, clientY) => {
-      if (!scrollRef.current) return;
-      const rect = scrollRef.current.getBoundingClientRect();
-      // Only accept drops over the calendar scroll area
-      if (clientY < rect.top || clientY > rect.bottom) return;
-      const relativeY = (clientY - rect.top) + scrollRef.current.scrollTop;
-      const hourRaw = (relativeY / GRID_HEIGHT) * 24;
-      // Snap to 15-min increments
-      const startHour = Math.max(0, Math.min(23.75, Math.round(hourRaw * 4) / 4));
-      if (!dragState.task) return;
-      setTaskEvents((prev) => [
-        ...prev,
-        { id: Date.now(), text: dragState.task.text, color: dragState.task.color, startHour, durationHours: 0.5 },
-      ]);
-    };
-    return () => { dragState.dropHandler = null; };
-  }, []);
+    registerDropHandler?.(handleExternalDrop);
+  }, [registerDropHandler, handleExternalDrop]);
 
-  // Mouse-based resize
-  const startResize = useCallback((eventId, startClientY) => {
-    resizeRef.current = { eventId, startClientY };
+  const handleResize = (id, newDuration) => {
+    setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, durationHours: newDuration } : te));
+  };
 
-    const onMouseMove = (e) => {
-      if (!resizeRef.current) return;
-      const { eventId, startClientY } = resizeRef.current;
-      const deltaHours = ((e.clientY - startClientY) / GRID_HEIGHT) * 24;
-      setTaskEvents((prev) =>
-        prev.map((ev) => {
-          if (ev.id !== eventId) return ev;
-          const newDuration = Math.max(0.25, Math.round((ev.durationHours + deltaHours) * 4) / 4);
-          return { ...ev, durationHours: newDuration };
-        })
-      );
-      resizeRef.current.startClientY = e.clientY;
-    };
+  const handleRemove = (id) => {
+    setTaskEvents((prev) => prev.filter((te) => te.id !== id));
+  };
 
-    const onMouseUp = () => {
-      resizeRef.current = null;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }, []);
-
-  const removeTaskEvent = useCallback((id) => {
-    setTaskEvents((prev) => prev.filter((e) => e.id !== id));
-  }, []);
+  useEffect(() => { if (selectedDate) setDate(selectedDate); }, [selectedDate]);
 
   const now = new Date();
   const currentTimePercent = isToday(date)
@@ -241,7 +187,7 @@ export default function CalendarPanel({ isDragging }) {
       {/* Time grid */}
       <div
         ref={scrollRef}
-        className={`flex-1 overflow-y-auto px-4 pb-4 transition-colors ${isDragging ? 'bg-primary/5' : ''}`}
+        className={`flex-1 overflow-y-auto px-4 pb-4 transition-colors ${isDraggingTodo ? 'bg-primary/5' : ''}`}
       >
         {error ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2">
@@ -249,7 +195,11 @@ export default function CalendarPanel({ isDragging }) {
             <Button size="sm" variant="outline" onClick={() => fetchEvents(date)}>Retry</Button>
           </div>
         ) : (
-          <div className="relative" style={{ height: `${GRID_HEIGHT}px` }}>
+          <div
+            ref={gridRef}
+            className="relative"
+            style={{ height: '1152px', outline: isDraggingTodo ? '2px dashed hsl(var(--primary))' : 'none', borderRadius: '8px' }}
+          >
             {/* Hour lines */}
             {HOURS.map((hour) => (
               <div
@@ -257,15 +207,32 @@ export default function CalendarPanel({ isDragging }) {
                 className="absolute w-full flex items-start"
                 style={{ top: `${(hour / 24) * 100}%` }}
               >
-                <span className="text-[10px] text-muted-foreground w-9 shrink-0 -mt-2 select-none">
+                <span className="text-[10px] text-muted-foreground w-14 shrink-0 -mt-2 select-none whitespace-nowrap">
                   {hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour < 12 ? `${hour} AM` : `${hour - 12} PM`}
                 </span>
                 <div className="flex-1 border-t border-border/60" />
               </div>
             ))}
+            {/* Half-hour lines */}
+            {HALF_HOURS.map((slot) => {
+              const h = Math.floor(slot);
+              const label = h === 0 ? '12:30 AM' : h === 12 ? '12:30 PM' : h < 12 ? `${h}:30 AM` : `${h - 12}:30 PM`;
+              return (
+                <div
+                  key={slot}
+                  className="absolute w-full flex items-start"
+                  style={{ top: `${(slot / 24) * 100}%` }}
+                >
+                  <span className="text-[9px] text-muted-foreground/50 w-14 shrink-0 -mt-1.5 select-none leading-none whitespace-nowrap">
+                    {label}
+                  </span>
+                  <div className="flex-1 border-t border-border/30 border-dashed mt-0" />
+                </div>
+              );
+            })}
 
             {/* Events area */}
-            <div className="absolute left-9 right-0 top-0 bottom-0">
+            <div className="absolute left-14 right-0 top-0 bottom-0">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -275,7 +242,7 @@ export default function CalendarPanel({ isDragging }) {
                   {events.map((event) => (
                     <EventBlock key={event.id} event={event} />
                   ))}
-                  {events.length === 0 && taskEvents.length === 0 && (
+                  {events.length === 0 && taskEvents.length === 0 && !loading && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -286,15 +253,9 @@ export default function CalendarPanel({ isDragging }) {
                   )}
                 </AnimatePresence>
               )}
-
               {/* Dropped task events */}
-              {taskEvents.map((ev) => (
-                <TaskEventBlock
-                  key={ev.id}
-                  event={ev}
-                  onRemove={removeTaskEvent}
-                  onStartResize={startResize}
-                />
+              {taskEvents.map((te) => (
+                <TaskEventBlock key={te.id} taskEvent={te} onResize={handleResize} onRemove={handleRemove} />
               ))}
 
               {/* Current time indicator */}

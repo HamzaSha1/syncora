@@ -1,0 +1,18 @@
+{
+  "name": "Project",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Project name"
+    },
+    "submission_deadline": {
+      "type": "string",
+      "format": "date",
+      "description": "Global project submission deadline"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
