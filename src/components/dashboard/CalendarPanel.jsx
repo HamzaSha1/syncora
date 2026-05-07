@@ -58,7 +58,9 @@ function EventBlock({ event, onClick }) {
   const start = toLocal(event.start.dateTime || event.start.date, event.start.timeZone);
   const end = toLocal(event.end.dateTime || event.end.date, event.end.timeZone);
   const style = getEventStyle(event);
-  const isShort = (end - start) / 60000 <= 30;
+  const durationMin = (end - start) / 60000;
+  const isShort = durationMin <= 30;
+  const isTiny = durationMin <= 15;
   const meetingUrl = getMeetingUrl(event);
 
   return (
@@ -70,34 +72,43 @@ function EventBlock({ event, onClick }) {
       style={style}
       title={event.subject}
     >
-      <div className="flex items-start justify-between gap-1">
-        <p className={`font-medium leading-tight truncate flex-1 ${isShort ? 'text-[10px]' : 'text-xs'}`}>
-          {event.subject}
-        </p>
-        {meetingUrl && (
-          <a
-            href={meetingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="shrink-0 bg-white/20 hover:bg-white/30 rounded px-1 py-0.5 flex items-center gap-0.5 text-[9px] font-medium transition-colors"
-            title="Join meeting"
-          >
-            <Video className="w-2.5 h-2.5" />
-            {!isShort && 'Join'}
-          </a>
-        )}
-      </div>
-      {!isShort && (
-        <p className="text-[10px] opacity-80 truncate">
-          {format(start, 'h:mm a')} – {format(end, 'h:mm a')}
-        </p>
-      )}
-      {event.location?.displayName && !isShort && (
-        <p className="text-[10px] opacity-70 truncate flex items-center gap-0.5 mt-0.5">
-          <MapPin className="w-2.5 h-2.5" />
-          {event.location.displayName}
-        </p>
+      {isTiny ? (
+        <div className="flex items-center gap-1 h-full">
+          {meetingUrl && <Video className="w-2.5 h-2.5 shrink-0 opacity-80" />}
+          <p className="text-[10px] font-medium leading-tight truncate">{event.subject}</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-1">
+            <p className={`font-medium leading-tight truncate flex-1 ${isShort ? 'text-[10px]' : 'text-xs'}`}>
+              {event.subject}
+            </p>
+            {meetingUrl && (
+              <a
+                href={meetingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="shrink-0 bg-white/20 hover:bg-white/30 rounded px-1 py-0.5 flex items-center gap-0.5 text-[9px] font-medium transition-colors"
+                title="Join meeting"
+              >
+                <Video className="w-2.5 h-2.5" />
+                {!isShort && 'Join'}
+              </a>
+            )}
+          </div>
+          {!isShort && (
+            <p className="text-[10px] opacity-80 truncate">
+              {format(start, 'h:mm a')} – {format(end, 'h:mm a')}
+            </p>
+          )}
+          {event.location?.displayName && !isShort && (
+            <p className="text-[10px] opacity-70 truncate flex items-center gap-0.5 mt-0.5">
+              <MapPin className="w-2.5 h-2.5" />
+              {event.location.displayName}
+            </p>
+          )}
+        </>
       )}
     </motion.div>
   );
