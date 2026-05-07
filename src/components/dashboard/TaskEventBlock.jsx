@@ -158,9 +158,29 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
                 </svg>
               )}
             </button>
-            <p className={`font-semibold text-white leading-tight truncate flex-1 ${isShort ? 'text-[10px]' : 'text-[11px]'} ${done ? 'line-through opacity-60' : ''}`}>
-              {taskEvent.text}
-            </p>
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              <p className={`font-semibold text-white leading-tight truncate ${isShort ? 'text-[10px]' : 'text-[11px]'} ${done ? 'line-through opacity-60' : ''}`}>
+                {taskEvent.text}
+              </p>
+              {taskEvent.attachments?.length > 0 && (
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {taskEvent.attachments.map((att) => (
+                    <a
+                      key={att.id}
+                      href={att.webLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-0.5 bg-black/15 hover:bg-black/25 text-white rounded px-1 py-0.5 text-[9px] max-w-[80px] transition-colors pointer-events-auto"
+                      title={att.subject}
+                    >
+                      {attIcon(att)}
+                      <span className="truncate">{att.subject}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               className="pointer-events-auto shrink-0 text-white/50 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity text-[11px] leading-none"
               onMouseDown={(e) => e.stopPropagation()}
@@ -175,25 +195,7 @@ export default function TaskEventBlock({ taskEvent, onComplete, onMove, onResize
             </p>
           )}
 
-          {/* Attachment chips — only if has attachments and not micro/tiny */}
-          {!isMicro && !isTiny && taskEvent.attachments?.length > 0 && (
-            <div className="pl-5 flex flex-wrap gap-0.5 mt-0.5">
-              {taskEvent.attachments.map((att) => (
-                <a
-                  key={att.id}
-                  href={att.webLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-0.5 bg-black/15 hover:bg-black/25 text-white rounded px-1 py-0.5 text-[9px] max-w-[120px] transition-colors pointer-events-auto"
-                  title={att.subject}
-                >
-                  {attIcon(att)}
-                  <span className="truncate">{att.subject}</span>
-                </a>
-              ))}
-            </div>
-          )}
+
         </div>
       )}
 
