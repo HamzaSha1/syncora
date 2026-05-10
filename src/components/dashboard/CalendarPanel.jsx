@@ -165,10 +165,16 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
     const snappedHour = Math.round(rawHour * 4) / 4;
     const startHour = Math.max(0, Math.min(snappedHour, 23.75));
 
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
     setTaskEvents((prev) => [
       ...prev,
-      { id: Date.now(), text, todoId, attachments, startHour, durationHours: 1, color: nextColor() },
+      { id: Date.now(), text, todoId, attachments, startHour, durationHours: 1, color: nextColor(), scheduledDate: todayStr },
     ]);
+
+    // Notify TodoPanel to mark as scheduled
+    if (todoId) {
+      todoSync.onTodoScheduled?.(todoId, todayStr);
+    }
   }, []);
 
   useEffect(() => {
@@ -179,8 +185,16 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
     setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, completed: newCompleted } : te));
     if (todoId) {
       try {
-        await base44.entities.Todo.update(todoId, { completed: newCompleted });
+        // If marking done: complete the todo and clear its scheduled_date
+        // If un-marking: reinstate it
+        const updateData = newCompleted
+          ? { completed: true, scheduled_date: null }
+          : { completed: false };
+        await base44.entities.Todo.update(todoId, updateData);
         todoSync.onTodoCompleted?.(todoId, newCompleted);
+        if (newCompleted) {
+          todoSync.onTodoReinstated?.(todoId); // remove from scheduled section
+        }
       } catch (err) {
         console.error('Failed to update todo:', err);
       }
@@ -196,7 +210,12 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
   };
 
   const handleRemove = (id) => {
-    setTaskEvents((prev) => prev.filter((te) => te.id !== id));
+    const te = taskEvents.find((t) => t.id === id);
+    setTaskEvents((prev) => prev.filter((t) => t.id !== id));
+    // Reinstate the todo if it was scheduled
+    if (te?.todoId) {
+      todoSync.onTodoReinstated?.(te.todoId);
+    }
   };
 
   useEffect(() => { if (selectedDate) setDate(selectedDate); }, [selectedDate]);

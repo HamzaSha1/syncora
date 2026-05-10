@@ -46,6 +46,11 @@
           }
         }
       }
+    },
+    "scheduled_date": {
+      "type": "string",
+      "format": "date",
+      "description": "The date this todo was scheduled on the calendar (YYYY-MM-DD). Cleared when reinstated or completed."
     }
   },
   "required": [

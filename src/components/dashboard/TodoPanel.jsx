@@ -32,20 +32,40 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
   const [pagesLoading, setPagesLoading] = useState(false);
   const syncIntervalRef = useRef(null);
 
-  // Load local todos
+  // Load local todos and reinstate any stale scheduled ones (scheduled on a past day and not completed)
   useEffect(() => {
-    base44.entities.Todo.list('order', 200).then((data) => {
-      setTodos(data);
+    base44.entities.Todo.list('order', 200).then(async (data) => {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const stale = data.filter((t) => t.scheduled_date && t.scheduled_date < todayStr && !t.completed);
+      if (stale.length > 0) {
+        await Promise.all(stale.map((t) => base44.entities.Todo.update(t.id, { scheduled_date: null })));
+        const fresh = await base44.entities.Todo.list('order', 200);
+        setTodos(fresh);
+      } else {
+        setTodos(data);
+      }
       setLoading(false);
     });
   }, []);
 
-  // Register callback so CalendarPanel can toggle todo completion
+  // Register callbacks so CalendarPanel can update todo state
   useEffect(() => {
     todoSync.onTodoCompleted = (todoId, completed) => {
       setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, completed } : t));
     };
-    return () => { todoSync.onTodoCompleted = null; };
+    todoSync.onTodoScheduled = (todoId, date) => {
+      setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, scheduled_date: date } : t));
+      base44.entities.Todo.update(todoId, { scheduled_date: date }).catch(console.error);
+    };
+    todoSync.onTodoReinstated = (todoId) => {
+      setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, scheduled_date: null } : t));
+      base44.entities.Todo.update(todoId, { scheduled_date: null }).catch(console.error);
+    };
+    return () => {
+      todoSync.onTodoCompleted = null;
+      todoSync.onTodoScheduled = null;
+      todoSync.onTodoReinstated = null;
+    };
   }, []);
 
   // Auto-sync from OneNote every 60s when a page is linked
@@ -228,8 +248,12 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
     setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, attachments } : t));
   };
 
+  const todayStr = new Date().toISOString().slice(0, 10);
   const active = todos
-    .filter((t) => !t.completed)
+    .filter((t) => !t.completed && !t.scheduled_date)
+    .sort((a, b) => (a.importance ?? 3) - (b.importance ?? 3));
+  const scheduled = todos
+    .filter((t) => !t.completed && t.scheduled_date === todayStr)
     .sort((a, b) => (a.importance ?? 3) - (b.importance ?? 3));
   const done = todos.filter((t) => t.completed);
 
@@ -372,6 +396,18 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
                 <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} onAttachmentsChange={handleAttachmentsChange} />
               ))}
             </AnimatePresence>
+            {scheduled.length > 0 && (
+              <>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest pt-2 pb-1 flex items-center gap-1">
+                  <span>📅</span> Scheduled Today
+                </p>
+                <AnimatePresence>
+                  {scheduled.map((todo) => (
+                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} onAttachmentsChange={handleAttachmentsChange} isScheduled />
+                  ))}
+                </AnimatePresence>
+              </>
+            )}
             {done.length > 0 && (
               <>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest pt-2 pb-1">Completed</p>
@@ -422,12 +458,13 @@ function ImportancePicker({ value, onChange }) {
   );
 }
 
-function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDragEnd, onAttachmentsChange }) {
+function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDragEnd, onAttachmentsChange, isScheduled }) {
   const imp = todo.importance ?? 3;
   const [showImportancePicker, setShowImportancePicker] = useState(false);
   const [showAttachPicker, setShowAttachPicker] = useState(false);
 
   const handleDragStart = (e) => {
+    if (isScheduled) { e.preventDefault(); return; }
     dragState.set(todo.text, todo.id, parseAttachments(todo.attachments));
     e.dataTransfer.setData('text/plain', todo.text);
     e.dataTransfer.effectAllowed = 'copy';
@@ -444,15 +481,16 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+      className={isScheduled ? 'opacity-50' : ''}
     >
       {/* Outer row — not draggable so attachment chips work as plain links */}
       <div className="flex items-start gap-2 group py-1">
         {/* Draggable handle: only checkbox + text */}
         <div
-          draggable="true"
+          draggable={!isScheduled}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
-          className="flex items-start gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
+          className={`flex items-start gap-2 flex-1 min-w-0 ${isScheduled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
         >
           <button
             onClick={() => onToggle(todo)}
