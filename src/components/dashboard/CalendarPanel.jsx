@@ -119,7 +119,20 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [taskEvents, setTaskEvents] = useState([]);
+  const STORAGE_KEY = 'calendarTaskEvents';
+
+  const loadTaskEvents = () => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  };
+
+  const saveTaskEvents = (events) => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); } catch {}
+  };
+
+  const [taskEvents, setTaskEvents] = useState(loadTaskEvents);
   const [editingEvent, setEditingEvent] = useState(null);
   const scrollRef = useRef(null);
   const gridRef = useRef(null);
@@ -166,10 +179,11 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
     const startHour = Math.max(0, Math.min(snappedHour, 23.75));
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    setTaskEvents((prev) => [
-      ...prev,
-      { id: Date.now(), text, todoId, attachments, startHour, durationHours: 1, color: nextColor(), scheduledDate: todayStr },
-    ]);
+    setTaskEvents((prev) => {
+      const next = [...prev, { id: Date.now(), text, todoId, attachments, startHour, durationHours: 1, color: nextColor(), scheduledDate: todayStr }];
+      saveTaskEvents(next);
+      return next;
+    });
 
     // Notify TodoPanel to mark as scheduled
     if (todoId) {
@@ -182,7 +196,11 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
   }, [registerDropHandler, handleExternalDrop]);
 
   const handleComplete = async (id, todoId, newCompleted) => {
-    setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, completed: newCompleted } : te));
+    setTaskEvents((prev) => {
+      const next = prev.map((te) => te.id === id ? { ...te, completed: newCompleted } : te);
+      saveTaskEvents(next);
+      return next;
+    });
     if (todoId) {
       try {
         // If marking done: complete the todo and clear its scheduled_date
@@ -202,17 +220,28 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
   };
 
   const handleMove = (id, newStartHour) => {
-    setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, startHour: newStartHour } : te));
+    setTaskEvents((prev) => {
+      const next = prev.map((te) => te.id === id ? { ...te, startHour: newStartHour } : te);
+      saveTaskEvents(next);
+      return next;
+    });
   };
 
   const handleResize = (id, newDuration) => {
-    setTaskEvents((prev) => prev.map((te) => te.id === id ? { ...te, durationHours: newDuration } : te));
+    setTaskEvents((prev) => {
+      const next = prev.map((te) => te.id === id ? { ...te, durationHours: newDuration } : te);
+      saveTaskEvents(next);
+      return next;
+    });
   };
 
   const handleRemove = (id) => {
     const te = taskEvents.find((t) => t.id === id);
-    setTaskEvents((prev) => prev.filter((t) => t.id !== id));
-    // Reinstate the todo if it was scheduled
+    setTaskEvents((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      saveTaskEvents(next);
+      return next;
+    });
     if (te?.todoId) {
       todoSync.onTodoReinstated?.(te.todoId);
     }
