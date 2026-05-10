@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { dragState } from '@/lib/dragState';
 import { todoSync } from '@/lib/todoSync';
 import { base44 } from '@/api/base44Client';
-import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText, Paperclip, Mail } from 'lucide-react';
+import { CheckSquare, Plus, Trash2, Check, BookOpen, ChevronDown, RefreshCw, X, FileText, Mail, Pencil, Calendar } from 'lucide-react';
+import TodoEditPanel from './TodoEditPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import NotesTab from './NotesTab';
-import AttachmentPicker from './AttachmentPicker';
 
 const parseAttachments = (raw) => {
   if (!raw) return [];
@@ -248,10 +248,25 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
     setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, attachments } : t));
   };
 
+  const editTodo = async (todoId, changes) => {
+    setTodos((prev) => prev.map((t) => t.id === todoId ? { ...t, ...changes } : t));
+    await base44.entities.Todo.update(todoId, changes);
+  };
+
   const todayStr = new Date().toISOString().slice(0, 10);
-  const active = todos
-    .filter((t) => !t.completed && !t.scheduled_date)
-    .sort((a, b) => (a.importance ?? 3) - (b.importance ?? 3));
+
+  const sortActive = (list) => list.sort((a, b) => {
+    const aOverdue = a.due_date && a.due_date < todayStr;
+    const bOverdue = b.due_date && b.due_date < todayStr;
+    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+    // Both overdue or both not: sort by due_date (soonest first, no date last), then importance
+    if (a.due_date && b.due_date && a.due_date !== b.due_date) return a.due_date < b.due_date ? -1 : 1;
+    if (a.due_date && !b.due_date) return -1;
+    if (!a.due_date && b.due_date) return 1;
+    return (a.importance ?? 3) - (b.importance ?? 3);
+  });
+
+  const active = sortActive(todos.filter((t) => !t.completed && !t.scheduled_date));
   const scheduled = todos
     .filter((t) => !t.completed && t.scheduled_date === todayStr)
     .sort((a, b) => (a.importance ?? 3) - (b.importance ?? 3));
@@ -393,7 +408,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
           <>
             <AnimatePresence>
               {active.map((todo) => (
-                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} onAttachmentsChange={handleAttachmentsChange} />
+                <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} onAttachmentsChange={handleAttachmentsChange} onEdit={editTodo} todayStr={todayStr} />
               ))}
             </AnimatePresence>
             {scheduled.length > 0 && (
@@ -403,7 +418,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
                 </p>
                 <AnimatePresence>
                   {scheduled.map((todo) => (
-                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} onAttachmentsChange={handleAttachmentsChange} isScheduled />
+                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} onAttachmentsChange={handleAttachmentsChange} onEdit={editTodo} todayStr={todayStr} isScheduled />
                   ))}
                 </AnimatePresence>
               </>
@@ -413,7 +428,7 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest pt-2 pb-1">Completed</p>
                 <AnimatePresence>
                   {done.map((todo) => (
-                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} onAttachmentsChange={handleAttachmentsChange} />
+                    <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} onSetImportance={setImportance} onDragStart={onDragStart} onDragEnd={onDragEnd} onAttachmentsChange={handleAttachmentsChange} onEdit={editTodo} todayStr={todayStr} />
                   ))}
                 </AnimatePresence>
               </>
@@ -458,21 +473,29 @@ function ImportancePicker({ value, onChange }) {
   );
 }
 
-function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDragEnd, onAttachmentsChange, isScheduled }) {
+function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDragEnd, onAttachmentsChange, onEdit, isScheduled, todayStr }) {
   const imp = todo.importance ?? 3;
-  const [showImportancePicker, setShowImportancePicker] = useState(false);
-  const [showAttachPicker, setShowAttachPicker] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const isOverdue = !todo.completed && todo.due_date && todo.due_date < todayStr;
 
   const handleDragStart = (e) => {
-    if (isScheduled) { e.preventDefault(); return; }
+    if (isScheduled || editing) { e.preventDefault(); return; }
     dragState.set(todo.text, todo.id, parseAttachments(todo.attachments));
     e.dataTransfer.setData('text/plain', todo.text);
     e.dataTransfer.effectAllowed = 'copy';
     onDragStart?.();
   };
 
-  const handleDragEnd = () => {
-    onDragEnd?.();
+  const handleDragEnd = () => { onDragEnd?.(); };
+
+  const handleSaveEdit = (changes) => {
+    onEdit(todo.id, changes);
+    setEditing(false);
+  };
+
+  const formatDate = (d) => {
+    const [y, m, day] = d.split('-');
+    return new Date(Number(y), Number(m) - 1, Number(day)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
   return (
@@ -483,14 +506,14 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
       className={isScheduled ? 'opacity-50' : ''}
     >
-      {/* Outer row — not draggable so attachment chips work as plain links */}
+      {/* Main row */}
       <div className="flex items-start gap-2 group py-1">
-        {/* Draggable handle: only checkbox + text */}
+        {/* Draggable: checkbox + text */}
         <div
-          draggable={!isScheduled}
+          draggable={!isScheduled && !editing}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
-          className={`flex items-start gap-2 flex-1 min-w-0 ${isScheduled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
+          className={`flex items-start gap-2 flex-1 min-w-0 ${isScheduled || editing ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
         >
           <button
             onClick={() => onToggle(todo)}
@@ -500,15 +523,27 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
           >
             {todo.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
           </button>
-          <span className={`text-sm leading-snug mt-0.5 ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-            {todo.text}
-            {todo.onenote_element_id && (
-              <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
+          <div className="flex flex-col min-w-0">
+            <span className={`text-sm leading-snug mt-0.5 ${todo.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+              {todo.text}
+              {todo.onenote_element_id && (
+                <span className="ml-1 text-[9px] text-muted-foreground/50">↔</span>
+              )}
+            </span>
+            {todo.due_date && !todo.completed && (
+              <span className={`inline-flex items-center gap-0.5 text-[9px] mt-0.5 font-medium px-1.5 py-0.5 rounded w-fit ${
+                isOverdue
+                  ? 'bg-destructive/15 text-destructive'
+                  : 'bg-secondary text-muted-foreground'
+              }`}>
+                <Calendar className="w-2 h-2 shrink-0" />
+                {isOverdue ? 'Late · ' : ''}{formatDate(todo.due_date)}
+              </span>
             )}
-          </span>
+          </div>
         </div>
 
-        {/* Attachment chips — outside draggable div, plain anchor tags */}
+        {/* Attachment chips */}
         {parseAttachments(todo.attachments).map((att) => (
           <a
             key={att.id}
@@ -523,27 +558,26 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
           </a>
         ))}
 
-        {/* Action buttons — outside draggable div */}
+        {/* Edit pencil */}
         {!todo.completed && (
           <button
-            onClick={() => setShowImportancePicker((p) => !p)}
-            className={`text-[10px] font-bold w-4 h-4 rounded flex items-center justify-center shrink-0 mt-0.5 transition-all hover:scale-110 ${IMPORTANCE_COLORS[imp]}`}
-            title="Change priority"
+            onClick={() => setEditing((p) => !p)}
+            className={`shrink-0 mt-0.5 transition-opacity ${editing ? 'opacity-100 text-primary' : 'opacity-0 group-hover:opacity-60 text-muted-foreground hover:text-foreground'}`}
+            title="Edit todo"
           >
-            {imp}
+            <Pencil className="w-3.5 h-3.5" />
           </button>
         )}
-        <button
-          onClick={(e) => { e.stopPropagation(); setShowAttachPicker((p) => !p); }}
-          className={`shrink-0 transition-opacity mt-0.5 ${
-            parseAttachments(todo.attachments).length > 0
-              ? 'opacity-70 text-primary'
-              : 'opacity-0 group-hover:opacity-60 text-muted-foreground'
-          } hover:opacity-100`}
-          title="Attach email"
-        >
-          <Paperclip className="w-3.5 h-3.5" />
-        </button>
+
+        {/* Priority badge */}
+        {!todo.completed && !editing && (
+          <span
+            className={`text-[10px] font-bold w-4 h-4 rounded flex items-center justify-center shrink-0 mt-0.5 ${IMPORTANCE_COLORS[imp]}`}
+          >
+            {imp}
+          </span>
+        )}
+
         <button
           onClick={() => onDelete(todo.id)}
           className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0 mt-0.5"
@@ -552,22 +586,12 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
         </button>
       </div>
 
-      {/* Importance picker */}
-      {!todo.completed && showImportancePicker && (
-        <div className="pl-6 pb-1">
-          <ImportancePicker value={imp} onChange={(v) => { onSetImportance(todo, v); setShowImportancePicker(false); }} />
-        </div>
-      )}
-
-      {showAttachPicker && (
-        <AttachmentPicker
-          attachments={parseAttachments(todo.attachments)}
-          onChange={async (newAtts) => {
-            onAttachmentsChange(todo.id, newAtts);
-            setShowAttachPicker(false);
-            await base44.entities.Todo.update(todo.id, { attachments: newAtts });
-          }}
-          onClose={() => setShowAttachPicker(false)}
+      {/* Inline edit panel */}
+      {editing && (
+        <TodoEditPanel
+          todo={todo}
+          onSave={handleSaveEdit}
+          onCancel={() => setEditing(false)}
         />
       )}
     </motion.div>

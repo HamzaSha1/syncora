@@ -20,6 +20,11 @@
       "default": 3,
       "description": "Importance level: 1=highest, 5=lowest"
     },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Target completion date (YYYY-MM-DD)"
+    },
     "onenote_element_id": {
       "type": "string",
       "description": "The OneNote paragraph element ID for syncing checklist state"

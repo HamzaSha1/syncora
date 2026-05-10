@@ -10,7 +10,7 @@ function fileIcon(name = '') {
   return <File className="w-2.5 h-2.5 shrink-0" />;
 }
 
-export default function AttachmentPicker({ attachments, onChange, onClose }) {
+export default function AttachmentPicker({ attachments, onChange, onClose, inline = false }) {
   const [query, setQuery] = useState('');
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -54,7 +54,7 @@ export default function AttachmentPicker({ attachments, onChange, onClose }) {
       date: email.receivedDateTime,
       webLink: email.webLink,
     }]);
-    onClose();
+    if (!inline) onClose();
   };
 
   const removeAttachment = (id) => onChange(attachments.filter((a) => a.id !== id));
@@ -103,9 +103,11 @@ export default function AttachmentPicker({ attachments, onChange, onClose }) {
           className="text-muted-foreground hover:text-foreground shrink-0">
           <Paperclip className="w-3 h-3" />
         </button>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground shrink-0">
-          <X className="w-3 h-3" />
-        </button>
+        {!inline && onClose && (
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground shrink-0">
+            <X className="w-3 h-3" />
+          </button>
+        )}
       </div>
       <div className="max-h-44 overflow-y-auto">
         {emails.map((email) => {
