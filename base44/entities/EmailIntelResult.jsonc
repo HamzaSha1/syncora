@@ -5,34 +5,34 @@
     "focus_today": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "object"
       },
       "description": "Emails to focus on today"
     },
     "need_to_reply": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "object"
       },
       "description": "Emails needing a reply"
     },
     "need_to_read": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "object"
       },
       "description": "Unread important emails"
     },
     "opened_not_replied": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "object"
       },
       "description": "Read but no reply sent"
     },
     "dismissed": {
       "type": "object",
-      "description": "Per-category dismissed item texts",
+      "description": "Per-category dismissed item labels",
       "additionalProperties": {
         "type": "array",
         "items": {

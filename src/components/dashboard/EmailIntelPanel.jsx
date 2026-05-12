@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Mail, RefreshCw, GripVertical, AlertCircle, X } from 'lucide-react';
+import { Mail, RefreshCw, GripVertical, AlertCircle, X, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { dragState } from '@/lib/dragState';
 import { formatDistanceToNow } from 'date-fns';
@@ -48,9 +48,9 @@ export default function EmailIntelPanel({ onDragStart, onDragEnd }) {
     setScanning(false);
   };
 
-  const discard = async (categoryKey, item) => {
+  const discard = async (categoryKey, label) => {
     const current = dismissed[categoryKey] || [];
-    const next = [...new Set([...current, item])];
+    const next = [...new Set([...current, label])];
     const nextDismissed = { ...dismissed, [categoryKey]: next };
     setDismissed(nextDismissed);
     if (recordId) {
@@ -58,9 +58,9 @@ export default function EmailIntelPanel({ onDragStart, onDragEnd }) {
     }
   };
 
-  const handleDragStart = (e, text) => {
-    dragState.set(text, null, []);
-    e.dataTransfer.setData('text/plain', text);
+  const handleDragStart = (e, label) => {
+    dragState.set(label, null, []);
+    e.dataTransfer.setData('text/plain', label);
     e.dataTransfer.effectAllowed = 'copy';
     onDragStart?.();
   };
@@ -123,7 +123,11 @@ export default function EmailIntelPanel({ onDragStart, onDragEnd }) {
           <div className="space-y-4">
             {CATEGORIES.map(({ key, label, color }) => {
               const dismissedSet = new Set(dismissed[key] || []);
-              const items = (data[key] || []).filter((item) => !dismissedSet.has(item));
+              // Support both old string format and new object format
+              const rawItems = (data[key] || []);
+              const items = rawItems
+                .map((item) => typeof item === 'string' ? { label: item, webLink: null } : item)
+                .filter((item) => !dismissedSet.has(item.label));
               if (items.length === 0) return null;
               return (
                 <div key={key}>
@@ -133,14 +137,26 @@ export default function EmailIntelPanel({ onDragStart, onDragEnd }) {
                       <div
                         key={i}
                         draggable
-                        onDragStart={(e) => handleDragStart(e, item)}
+                        onDragStart={(e) => handleDragStart(e, item.label)}
                         onDragEnd={handleDragEnd}
                         className="flex items-start gap-2 group cursor-grab active:cursor-grabbing bg-secondary/40 hover:bg-secondary rounded-lg px-2.5 py-2 transition-colors"
                       >
                         <GripVertical className="w-3 h-3 text-muted-foreground/40 group-hover:text-muted-foreground shrink-0 mt-0.5" />
-                        <span className="text-xs text-foreground leading-snug flex-1">{item}</span>
+                        <span className="text-xs text-foreground leading-snug flex-1">{item.label}</span>
+                        {item.webLink && (
+                          <a
+                            href={item.webLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0 mt-0.5"
+                            title="Open email"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
                         <button
-                          onClick={(e) => { e.stopPropagation(); discard(key, item); }}
+                          onClick={(e) => { e.stopPropagation(); discard(key, item.label); }}
                           className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0 mt-0.5"
                           title="Discard"
                         >
