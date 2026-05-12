@@ -545,17 +545,26 @@ function TodoItem({ todo, onToggle, onDelete, onSetImportance, onDragStart, onDr
 
         {/* Attachment chips */}
         {parseAttachments(todo.attachments).map((att) => (
-          <a
+          <span
             key={att.id}
-            href={att.webLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-0.5 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1.5 py-0.5 text-[10px] max-w-[140px] transition-colors shrink-0 mt-0.5"
-            title={att.subject}
+            role="button"
+            tabIndex={0}
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              if (att.webLink) window.open(att.webLink, '_blank', 'noopener,noreferrer');
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && att.webLink) window.open(att.webLink, '_blank', 'noopener,noreferrer'); }}
+            className={`inline-flex items-center gap-0.5 bg-primary/10 text-primary hover:bg-primary/20 rounded px-1.5 py-0.5 text-[10px] max-w-[140px] transition-colors shrink-0 mt-0.5 ${att.webLink ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+            title={att.webLink ? att.subject : `${att.subject} (no link available)`}
           >
-            <Mail className="w-2.5 h-2.5 shrink-0" />
-            <span className="truncate">{att.subject}</span>
-          </a>
+            <Mail className="w-2.5 h-2.5 pointer-events-none shrink-0" />
+            <span className="truncate pointer-events-none">{att.subject}</span>
+          </span>
         ))}
 
         {/* Edit pencil */}
