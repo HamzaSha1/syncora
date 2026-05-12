@@ -33,25 +33,32 @@ Deno.serve(async (req) => {
     subject: e.subject || '(no subject)',
     from: e.from?.emailAddress?.name || e.from?.emailAddress?.address || 'Unknown',
     receivedDateTime: e.receivedDateTime,
-    bodyPreview: (e.bodyPreview || '').slice(0, 300),
+    bodyPreview: (e.bodyPreview || '').slice(0, 500),
   }));
 
-  const prompt = `You are an email search assistant. The user is searching for: "${query}"
+  const prompt = `You are a strict email search assistant. The user is looking for a specific email described as:
+
+"${query}"
+
+This description may contain multiple criteria: sender, topic, document type, timeframe, keywords, context, etc.
 
 Here are ${summaries.length} emails (most recent first). Each has an "index" field.
 
 Emails:
 ${JSON.stringify(summaries, null, 2)}
 
-Semantically match emails that are relevant to the user's query — understand the meaning and intent, not just keywords.
+STRICT MATCHING RULES — an email must satisfy ALL of the following to be included:
+1. Every meaningful criterion in the search description must match (sender AND topic AND document type AND timeframe, etc.).
+2. A partial match on only one criterion (e.g. just the sender name, or just one keyword) is NOT enough — ALL aspects must align.
+3. If you are not confident the email matches the full description, exclude it.
+4. It is perfectly fine — and expected — to return an empty results array if no email genuinely matches ALL criteria.
+5. Do NOT force matches. Precision is far more important than recall.
 
 Return a JSON object with:
-- "results": array of matched email objects, each with:
+- "results": array of matched email objects (only those matching ALL criteria), each with:
   - "index": the index of the matched email
-  - "relevance": a short 1-sentence explanation of why it's relevant (max 15 words)
-- If no emails are relevant, return { "results": [] }
-
-Only return genuinely relevant emails. Do not force matches.`;
+  - "relevance": a concise explanation of how it satisfies each criterion in the search description
+- If no emails match all criteria, return { "results": [] }`;
 
   const aiResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
     prompt,
