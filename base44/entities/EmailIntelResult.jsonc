@@ -1,0 +1,41 @@
+{
+  "name": "EmailIntelResult",
+  "type": "object",
+  "properties": {
+    "focus_today": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Emails to focus on today"
+    },
+    "need_to_reply": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Emails needing a reply"
+    },
+    "need_to_read": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Unread important emails"
+    },
+    "opened_not_replied": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Read but no reply sent"
+    },
+    "scanned_at": {
+      "type": "string",
+      "description": "ISO timestamp of when this scan ran"
+    }
+  },
+  "required": [
+    "scanned_at"
+  ]
+}

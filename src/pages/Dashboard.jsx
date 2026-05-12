@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import CalendarPanel from '@/components/dashboard/CalendarPanel';
 import TodoPanel from '@/components/dashboard/TodoPanel';
 import MonthlyCalendarPanel from '@/components/dashboard/MonthlyCalendarPanel';
-import AdvisorPanel from '@/components/dashboard/AdvisorPanel';
+import BottomPanel from '@/components/dashboard/BottomPanel';
 import { format } from 'date-fns';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 
@@ -66,10 +66,10 @@ export default function Dashboard() {
 
         <ResizeHandle direction="vertical" />
 
-        {/* Bottom: Advisor Tracking */}
+        {/* Bottom: Advisor Tracking + Email Intel */}
         <Panel defaultSize={35} minSize={10}>
           <div className="h-full bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <AdvisorPanel />
+            <BottomPanel onDragStart={handleTodoDragStart} onDragEnd={handleTodoDragEnd} />
           </div>
         </Panel>
 
