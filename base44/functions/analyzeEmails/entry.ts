@@ -31,7 +31,19 @@ Deno.serve(async (req) => {
   // Build a set of conversation IDs that the user has replied to
   const repliedConversationIds = new Set(sentEmails.map((e) => e.conversationId).filter(Boolean));
 
-  // Prepare email summaries for AI
+  // Also fetch sent items that are explicit replies (have inReplyTo) for extra accuracy
+  const repliedSentRes = await fetch(
+    `https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$top=200&$orderby=sentDateTime desc&$select=id,conversationId,subject&$filter=isDraft eq false`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const repliedSentData = await repliedSentRes.json();
+  const allSentConversationIds = new Set(
+    (repliedSentData.value || []).map((e) => e.conversationId).filter(Boolean)
+  );
+  // Merge both sets
+  for (const id of allSentConversationIds) repliedConversationIds.add(id);
+
+  // Prepare email summaries for AI — exclude emails where user has already replied
   const emailSummaries = inboxEmails.map((e) => ({
     subject: e.subject || '(no subject)',
     from: e.from?.emailAddress?.name || e.from?.emailAddress?.address || 'Unknown',
@@ -53,11 +65,12 @@ ${JSON.stringify(emailSummaries, null, 2)}
 Analyze these emails and return a JSON with exactly 4 arrays of action items. Each item is a short, actionable bullet point (max 15 words). Be specific — include sender name and subject context.
 
 Rules:
-- "focus_today": Emails that urgently need attention today (recent, important senders, deadlines, requests, time-sensitive)
-- "need_to_reply": Emails where a reply is clearly expected but hasReplied is false
-- "need_to_read": Emails that are unread (isRead=false) and seem important enough to read
-- "opened_not_replied": Emails where isRead=true but hasReplied=false and a response seems warranted
+- "focus_today": Emails that urgently need attention today (recent, important senders, deadlines, requests, time-sensitive). Only include if hasReplied is false.
+- "need_to_reply": Emails where a reply is clearly expected AND hasReplied is STRICTLY false. NEVER include any email where hasReplied is true.
+- "need_to_read": Emails that are unread (isRead=false) and seem important enough to read. Only include if hasReplied is false.
+- "opened_not_replied": Emails where isRead=true AND hasReplied is STRICTLY false and a response seems warranted. NEVER include any email where hasReplied is true.
 
+CRITICAL: hasReplied=true means the user has already sent a reply in that conversation thread. Do NOT include those in any category.
 Avoid overlap between categories. Return max 8 items per category. Be concise and direct.`;
 
   const result = await base44.asServiceRole.integrations.Core.InvokeLLM({

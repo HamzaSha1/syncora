@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Mail, RefreshCw, GripVertical, AlertCircle } from 'lucide-react';
+import { Mail, RefreshCw, GripVertical, AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { dragState } from '@/lib/dragState';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,9 +14,12 @@ const CATEGORIES = [
 
 export default function EmailIntelPanel({ onDragStart, onDragEnd }) {
   const [data, setData] = useState(null);
+  const [recordId, setRecordId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState(null);
+  // dismissed: { focus_today: Set, need_to_reply: Set, ... }
+  const [dismissed, setDismissed] = useState({});
 
   useEffect(() => {
     loadLatest();
@@ -25,7 +28,11 @@ export default function EmailIntelPanel({ onDragStart, onDragEnd }) {
   const loadLatest = async () => {
     setLoading(true);
     const results = await base44.entities.EmailIntelResult.list('-created_date', 1);
-    if (results.length > 0) setData(results[0]);
+    if (results.length > 0) {
+      setData(results[0]);
+      setRecordId(results[0].id);
+      setDismissed(results[0].dismissed || {});
+    }
     setLoading(false);
   };
 
@@ -34,7 +41,21 @@ export default function EmailIntelPanel({ onDragStart, onDragEnd }) {
     setError(null);
     const res = await base44.functions.invoke('analyzeEmails', {});
     setData(res.data);
+    setDismissed({});
+    // After scan, reload to get new record id
+    const results = await base44.entities.EmailIntelResult.list('-created_date', 1);
+    if (results.length > 0) setRecordId(results[0].id);
     setScanning(false);
+  };
+
+  const discard = async (categoryKey, item) => {
+    const current = dismissed[categoryKey] || [];
+    const next = [...new Set([...current, item])];
+    const nextDismissed = { ...dismissed, [categoryKey]: next };
+    setDismissed(nextDismissed);
+    if (recordId) {
+      await base44.entities.EmailIntelResult.update(recordId, { dismissed: nextDismissed });
+    }
   };
 
   const handleDragStart = (e, text) => {
@@ -101,7 +122,8 @@ export default function EmailIntelPanel({ onDragStart, onDragEnd }) {
         {!isLoading && data && (
           <div className="space-y-4">
             {CATEGORIES.map(({ key, label, color }) => {
-              const items = data[key] || [];
+              const dismissedSet = new Set(dismissed[key] || []);
+              const items = (data[key] || []).filter((item) => !dismissedSet.has(item));
               if (items.length === 0) return null;
               return (
                 <div key={key}>
@@ -116,7 +138,14 @@ export default function EmailIntelPanel({ onDragStart, onDragEnd }) {
                         className="flex items-start gap-2 group cursor-grab active:cursor-grabbing bg-secondary/40 hover:bg-secondary rounded-lg px-2.5 py-2 transition-colors"
                       >
                         <GripVertical className="w-3 h-3 text-muted-foreground/40 group-hover:text-muted-foreground shrink-0 mt-0.5" />
-                        <span className="text-xs text-foreground leading-snug">{item}</span>
+                        <span className="text-xs text-foreground leading-snug flex-1">{item}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); discard(key, item); }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0 mt-0.5"
+                          title="Discard"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
                       </div>
                     ))}
                   </div>

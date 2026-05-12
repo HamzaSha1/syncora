@@ -30,6 +30,16 @@
       },
       "description": "Read but no reply sent"
     },
+    "dismissed": {
+      "type": "object",
+      "description": "Per-category dismissed item texts",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
     "scanned_at": {
       "type": "string",
       "description": "ISO timestamp of when this scan ran"
