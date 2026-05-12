@@ -4,6 +4,7 @@ import { Mail, RefreshCw, GripVertical, AlertCircle, X, ExternalLink } from 'luc
 import { Button } from '@/components/ui/button';
 import { dragState } from '@/lib/dragState';
 import { formatDistanceToNow } from 'date-fns';
+import EmailSearchPanel from './EmailSearchPanel';
 
 const CATEGORIES = [
   { key: 'focus_today', label: '🎯 Focus Today', color: 'text-destructive' },
@@ -117,6 +118,10 @@ export default function EmailIntelPanel({ onDragStart, onDragEnd }) {
             </p>
             <Button size="sm" className="h-7 text-xs" onClick={scan}>Scan Now</Button>
           </div>
+        )}
+
+        {!isLoading && (
+          <EmailSearchPanel onDragStart={onDragStart} onDragEnd={onDragEnd} />
         )}
 
         {!isLoading && data && (
