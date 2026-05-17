@@ -14,7 +14,10 @@ Deno.serve(async (req) => {
     const res = await fetch(`https://graph.microsoft.com/v1.0/me/onenote/pages/${pageId}/content?includeIDs=true`, {
       headers: { 'Authorization': `Bearer ${accessToken}` },
     });
-    if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
+    if (!res.ok) {
+      if (res.status === 404) return Response.json({ items: [], notFound: true }, { status: 200 });
+      throw new Error(`Graph API error: ${res.status}`);
+    }
     const html = await res.text();
 
     console.log('HTML snippet:', html.substring(0, 2000));
