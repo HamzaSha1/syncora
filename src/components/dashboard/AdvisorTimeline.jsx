@@ -83,20 +83,11 @@ export default function AdvisorTimeline({ advisor, projectDeadline }) {
     red: 'bg-red-400',
   };
 
-  // Labels: [{ percent, text, anchor }]  anchor: 'left'|'center'|'right'
-  const labels = [
-    { percent: 0, text: format(elStart, 'MMM yyyy'), anchor: 'left' },
-    { percent: toPercent(elEndDate), text: `EL ends ${format(elEndDate, 'MMM d, yyyy')}`, anchor: 'center' },
-  ];
-  if (deadline) {
-    labels.push({ percent: 100, text: `Deadline: ${format(deadline, 'MMM d, yyyy')}`, anchor: 'right' });
-  }
+  const elEndPercent = toPercent(elEndDate);
 
-  const anchorStyle = (anchor, percent) => {
-    if (anchor === 'left') return { left: `${percent}%`, transform: 'translateX(0%)' };
-    if (anchor === 'right') return { left: `${percent}%`, transform: 'translateX(-100%)' };
-    return { left: `${percent}%`, transform: 'translateX(-50%)' };
-  };
+
+  // Detect if EL-end label and Deadline label are too close (within 20%) — if so, suppress EL-end label
+  const showElEnd = !deadline || Math.abs(elEndPercent - 100) > 20;
 
   return (
     <div className="w-full">
@@ -121,19 +112,32 @@ export default function AdvisorTimeline({ advisor, projectDeadline }) {
         )}
       </div>
 
-      {/* Labels pinned to their exact percentage positions */}
-      <div className="relative h-4 w-full mt-0.5">
-        {labels.map((lbl, i) => (
+      {/* Labels row — all absolutely pinned at correct percentages */}
+      <div className="relative w-full" style={{ height: '14px', marginTop: '2px' }}>
+        {/* Start date — left-anchored */}
+        <span className="absolute text-[9px] text-muted-foreground whitespace-nowrap" style={{ left: '0%' }}>
+          {format(elStart, 'MMM yyyy')}
+        </span>
+
+        {/* EL ends — center-anchored, only if not too close to deadline */}
+        {showElEnd && (
           <span
-            key={i}
             className="absolute text-[9px] text-muted-foreground whitespace-nowrap"
-            style={anchorStyle(lbl.anchor, lbl.percent)}
+            style={{ left: `${elEndPercent}%`, transform: 'translateX(-50%)' }}
           >
-            {lbl.text}
+            {`EL ends ${format(elEndDate, 'MMM d, yyyy')}`}
           </span>
-        ))}
-        {/* Today label pinned under the marker */}
-        {todayPercent > 5 && todayPercent < 95 && (
+        )}
+
+        {/* Deadline — right-anchored at 100% */}
+        {deadline && (
+          <span className="absolute text-[9px] text-muted-foreground whitespace-nowrap" style={{ right: '0%' }}>
+            {`Deadline: ${format(deadline, 'MMM d, yyyy')}`}
+          </span>
+        )}
+
+        {/* Today label — center-anchored under marker, only if not near edges */}
+        {todayPercent > 8 && todayPercent < 92 && (
           <span
             className="absolute text-[9px] font-medium text-foreground whitespace-nowrap"
             style={{ left: `${todayPercent}%`, transform: 'translateX(-50%)' }}
