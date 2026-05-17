@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import CalendarPanel from '@/components/dashboard/CalendarPanel';
 import TodoPanel from '@/components/dashboard/TodoPanel';
 import MonthlyCalendarPanel from '@/components/dashboard/MonthlyCalendarPanel';
@@ -16,6 +16,11 @@ function ResizeHandle({ direction = 'horizontal' }) {
 
 export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
   const [isDraggingTodo, setIsDraggingTodo] = useState(false);
   const onDropToCalendar = useRef(null); // callback set by CalendarPanel via registerDropHandler
 
@@ -27,8 +32,11 @@ export default function Dashboard() {
 
       {/* Top date bar */}
       <div className="shrink-0">
-        <h1 className="text-xl font-semibold text-foreground">{format(new Date(), 'EEEE')}</h1>
-        <p className="text-sm text-muted-foreground">{format(new Date(), 'MMMM d, yyyy')}</p>
+        <h1 className="text-xl font-semibold text-foreground">{format(now, 'EEEE')}</h1>
+        <p className="text-sm text-muted-foreground">
+          {format(now, 'MMMM d, yyyy')}
+          <span className="ml-3 font-mono text-foreground font-medium">{format(now, 'hh:mm:ss aa')}</span>
+        </p>
       </div>
 
       <PanelGroup direction="vertical" className="flex-1 min-h-0">
