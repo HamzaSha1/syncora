@@ -76,15 +76,18 @@ export default function AdvisorTimeline({ advisor, projectDeadline }) {
   };
 
   return (
-    <div className="relative h-5 w-full rounded-full overflow-hidden bg-secondary">
-      {segments.map((seg, i) => (
-        <div
-          key={i}
-          className={`absolute top-0 bottom-0 ${segmentColors[seg.type]} opacity-80`}
-          style={{ left: `${seg.start}%`, width: `${seg.end - seg.start}%` }}
-        />
-      ))}
-      {/* Today marker */}
+    <div className="relative h-5 w-full">
+      {/* Bar with segments */}
+      <div className="absolute inset-0 rounded-full overflow-hidden bg-secondary">
+        {segments.map((seg, i) => (
+          <div
+            key={i}
+            className={`absolute top-0 bottom-0 ${segmentColors[seg.type]} opacity-80`}
+            style={{ left: `${seg.start}%`, width: `${seg.end - seg.start}%` }}
+          />
+        ))}
+      </div>
+      {/* Today marker — outside overflow-hidden so it isn't clipped */}
       {todayPercent >= 0 && todayPercent <= 100 && (
         <div
           className="absolute top-0 bottom-0 w-0.5 bg-foreground z-10"
