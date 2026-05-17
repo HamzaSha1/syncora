@@ -153,6 +153,36 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
 
   useEffect(() => { fetchEvents(date); }, [date, fetchEvents]);
 
+  // Auto-refresh every minute between 8am–6pm; full day reset at midnight
+  useEffect(() => {
+    const scheduleNextTick = () => {
+      const now = new Date();
+      const h = now.getHours();
+
+      // At midnight (0:00), reload the page so date/day resets
+      if (h === 0 && now.getMinutes() === 0) {
+        window.location.reload();
+        return;
+      }
+
+      // Between 8am and 6pm, refresh calendar events every minute
+      if (h >= 8 && h < 18) {
+        fetchEvents(date);
+      }
+    };
+
+    // Align interval to the next full minute
+    const now = new Date();
+    const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+    const timeout = setTimeout(() => {
+      scheduleNextTick();
+      const interval = setInterval(scheduleNextTick, 60000);
+      return () => clearInterval(interval);
+    }, msUntilNextMinute);
+
+    return () => clearTimeout(timeout);
+  }, [date, fetchEvents]);
+
   // Auto-scroll to current time
   useEffect(() => {
     if (scrollRef.current && isToday(date)) {
@@ -249,7 +279,11 @@ export default function CalendarPanel({ selectedDate, onDateChange, isDraggingTo
 
   useEffect(() => { if (selectedDate) setDate(selectedDate); }, [selectedDate]);
 
-  const now = new Date();
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
   const currentTimePercent = isToday(date)
     ? ((now.getHours() + now.getMinutes() / 60) / 24) * 100
     : null;
