@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { addMonths, addDays, differenceInDays, parseISO, isValid, format } from 'date-fns';
 
 // Given an advisor and project deadline, compute timeline segments
-export function computeSegments(advisor, projectDeadline) {
+// sharedRange: optional { start: Date, end: Date } to normalize all advisors to the same scale
+export function computeSegments(advisor, projectDeadline, sharedRange) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -26,14 +27,20 @@ export function computeSegments(advisor, projectDeadline) {
   const pauseDays = hasPause ? differenceInDays(pauseResume, pauseStart) : 0;
   const effectiveElEnd = addDays(baseElEnd, pauseDays);
 
-  // Timeline span: from elStart to max(effectiveElEnd, deadline, today)
-  // Always use deadline as the right edge if available, so the bar fills to the deadline
-  let timelineEnd = effectiveElEnd;
-  if (deadline && deadline > timelineEnd) timelineEnd = deadline;
-  if (today > timelineEnd) timelineEnd = today;
-  const totalDays = differenceInDays(timelineEnd, elStart);
+  // Use shared range if provided, otherwise compute per-advisor range
+  let rangeStart, rangeEnd;
+  if (sharedRange) {
+    rangeStart = sharedRange.start;
+    rangeEnd = sharedRange.end;
+  } else {
+    rangeStart = elStart;
+    rangeEnd = effectiveElEnd;
+    if (deadline && deadline > rangeEnd) rangeEnd = deadline;
+    if (today > rangeEnd) rangeEnd = today;
+  }
+  const totalDays = differenceInDays(rangeEnd, rangeStart);
 
-  const toPercent = (date) => Math.min(100, Math.max(0, (differenceInDays(date, elStart) / totalDays) * 100));
+  const toPercent = (date) => Math.min(100, Math.max(0, (differenceInDays(date, rangeStart) / totalDays) * 100));
 
   const segments = [];
 
@@ -59,11 +66,11 @@ export function computeSegments(advisor, projectDeadline) {
 
   const todayPercent = toPercent(today);
 
-  return { segments, todayPercent, totalDays, elStart, timelineEnd, toPercent, effectiveElEnd, baseElEnd };
+  return { segments, todayPercent, totalDays, elStart, timelineEnd: rangeEnd, toPercent, effectiveElEnd, baseElEnd };
 }
 
-export default function AdvisorTimeline({ advisor, projectDeadline }) {
-  const result = useMemo(() => computeSegments(advisor, projectDeadline), [advisor, projectDeadline]);
+export default function AdvisorTimeline({ advisor, projectDeadline, sharedRange }) {
+  const result = useMemo(() => computeSegments(advisor, projectDeadline, sharedRange), [advisor, projectDeadline, sharedRange]);
 
   if (!result) return <div className="text-xs text-muted-foreground">Invalid date</div>;
 
