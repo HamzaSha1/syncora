@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Plus, Trash2, PenLine, Check, X, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { format, parseISO, addMonths, addDays, differenceInDays, isValid } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import AdvisorTimeline from './AdvisorTimeline';
 import AddAdvisorForm from './AddAdvisorForm';
 
@@ -34,31 +34,6 @@ export default function AdvisorPanel() {
 
   const activeProject = projects.find((p) => p.id === activeProjectId);
   const projectAdvisors = advisors.filter((a) => a.project_id === activeProjectId);
-
-  // Compute shared date range: earliest start → latest end across all advisors
-  const sharedRange = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const deadline = activeProject?.submission_deadline ? parseISO(activeProject.submission_deadline) : null;
-
-    let rangeStart = null;
-    let rangeEnd = deadline || today;
-
-    for (const adv of projectAdvisors) {
-      if (!adv.el_start_date || !isValid(parseISO(adv.el_start_date))) continue;
-      const elStart = parseISO(adv.el_start_date);
-      if (!rangeStart || elStart < rangeStart) rangeStart = elStart;
-
-      const hasPause = adv.pause_start_date && adv.pause_resume_date &&
-        isValid(parseISO(adv.pause_start_date)) && isValid(parseISO(adv.pause_resume_date));
-      const pauseDays = hasPause ? differenceInDays(parseISO(adv.pause_resume_date), parseISO(adv.pause_start_date)) : 0;
-      const elEnd = addDays(addMonths(elStart, adv.duration_months || 0), pauseDays);
-      if (elEnd > rangeEnd) rangeEnd = elEnd;
-    }
-
-    if (today > rangeEnd) rangeEnd = today;
-    return rangeStart ? { start: rangeStart, end: rangeEnd } : null;
-  }, [projectAdvisors, activeProject]);
 
   const addProject = async (e) => {
     e.preventDefault();
@@ -261,7 +236,7 @@ export default function AdvisorPanel() {
                       </button>
                     </div>
                   </div>
-                  <AdvisorTimeline advisor={adv} projectDeadline={activeProject.submission_deadline} sharedRange={sharedRange} />
+                  <AdvisorTimeline advisor={adv} projectDeadline={activeProject.submission_deadline} />
                 </div>
               )}
             </div>
