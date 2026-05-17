@@ -81,7 +81,14 @@ export default function TodoPanel({ onDragStart, onDragEnd }) {
   const syncFromOneNote = async (pageId, silent = true) => {
     if (!silent) setSyncing(true);
     try {
-      const res = await base44.functions.invoke('syncOneNoteItems', { pageId });
+      let res;
+      try {
+        res = await base44.functions.invoke('syncOneNoteItems', { pageId });
+      } catch (invokeErr) {
+        // Function deployment or network error — skip silently
+        if (!silent) setSyncing(false);
+        return;
+      }
       // If page no longer exists, silently clear the stale reference
       if (res.data.notFound) {
         clearPage();
