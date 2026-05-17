@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { Plus, Trash2, PenLine, Check, X, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid, differenceInDays, addMonths, addDays } from 'date-fns';
 import AdvisorTimeline from './AdvisorTimeline';
 import AddAdvisorForm from './AddAdvisorForm';
 
@@ -34,6 +34,37 @@ export default function AdvisorPanel() {
 
   const activeProject = projects.find((p) => p.id === activeProjectId);
   const projectAdvisors = advisors.filter((a) => a.project_id === activeProjectId);
+
+  // Compute a shared todayPercent across all advisors so the "Today" line is at the same position
+  const sharedTodayPercent = (() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deadline = activeProject?.submission_deadline && isValid(parseISO(activeProject.submission_deadline))
+      ? parseISO(activeProject.submission_deadline) : null;
+
+    // Find earliest start date among all advisors
+    const starts = projectAdvisors
+      .map((a) => a.el_start_date && isValid(parseISO(a.el_start_date)) ? parseISO(a.el_start_date) : null)
+      .filter(Boolean);
+    if (starts.length === 0) return null;
+    const earliest = starts.reduce((a, b) => (a < b ? a : b));
+
+    // Right edge: deadline or latest EL end or today
+    let rightEdge = deadline || today;
+    projectAdvisors.forEach((a) => {
+      if (!a.el_start_date || !a.duration_months) return;
+      const base = addMonths(parseISO(a.el_start_date), a.duration_months);
+      const pauseDays = (a.pause_start_date && a.pause_resume_date && isValid(parseISO(a.pause_start_date)) && isValid(parseISO(a.pause_resume_date)))
+        ? differenceInDays(parseISO(a.pause_resume_date), parseISO(a.pause_start_date)) : 0;
+      const end = addDays(base, pauseDays);
+      if (end > rightEdge) rightEdge = end;
+    });
+    if (today > rightEdge) rightEdge = today;
+
+    const total = differenceInDays(rightEdge, earliest);
+    if (total <= 0) return null;
+    return Math.min(100, Math.max(0, (differenceInDays(today, earliest) / total) * 100));
+  })();
 
   const addProject = async (e) => {
     e.preventDefault();
@@ -236,7 +267,7 @@ export default function AdvisorPanel() {
                       </button>
                     </div>
                   </div>
-                  <AdvisorTimeline advisor={adv} projectDeadline={activeProject.submission_deadline} />
+                  <AdvisorTimeline advisor={adv} projectDeadline={activeProject.submission_deadline} sharedTodayPercent={sharedTodayPercent} />
                 </div>
               )}
             </div>

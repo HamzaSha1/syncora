@@ -62,12 +62,13 @@ export function computeSegments(advisor, projectDeadline) {
   return { segments, todayPercent, totalDays, elStart, timelineEnd, toPercent, effectiveElEnd, baseElEnd };
 }
 
-export default function AdvisorTimeline({ advisor, projectDeadline }) {
+export default function AdvisorTimeline({ advisor, projectDeadline, sharedTodayPercent }) {
   const result = useMemo(() => computeSegments(advisor, projectDeadline), [advisor, projectDeadline]);
 
   if (!result) return <div className="text-xs text-muted-foreground">Invalid date</div>;
 
-  const { segments, todayPercent, toPercent, elStart, effectiveElEnd, baseElEnd } = result;
+  const { segments, toPercent, elStart, effectiveElEnd, baseElEnd } = result;
+  const todayPercent = sharedTodayPercent ?? result.todayPercent;
 
   const hasPause =
     advisor.pause_start_date && advisor.pause_resume_date &&
