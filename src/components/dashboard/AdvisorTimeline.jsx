@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { addMonths, addDays, differenceInDays, parseISO, isValid } from 'date-fns';
+import { addMonths, addDays, differenceInDays, parseISO, isValid, format } from 'date-fns';
 
 // Given an advisor and project deadline, compute timeline segments
 export function computeSegments(advisor, projectDeadline) {
@@ -67,7 +67,15 @@ export default function AdvisorTimeline({ advisor, projectDeadline }) {
 
   if (!result) return <div className="text-xs text-muted-foreground">Invalid date</div>;
 
-  const { segments, todayPercent } = result;
+  const { segments, todayPercent, toPercent, elStart, effectiveElEnd, baseElEnd } = result;
+
+  const hasPause =
+    advisor.pause_start_date && advisor.pause_resume_date &&
+    isValid(parseISO(advisor.pause_start_date)) &&
+    isValid(parseISO(advisor.pause_resume_date));
+
+  const deadline = projectDeadline && isValid(parseISO(projectDeadline)) ? parseISO(projectDeadline) : null;
+  const elEndDate = hasPause ? effectiveElEnd : baseElEnd;
 
   const segmentColors = {
     green: 'bg-emerald-400',
@@ -75,26 +83,65 @@ export default function AdvisorTimeline({ advisor, projectDeadline }) {
     red: 'bg-red-400',
   };
 
+  // Labels: [{ percent, text, anchor }]  anchor: 'left'|'center'|'right'
+  const labels = [
+    { percent: 0, text: format(elStart, 'MMM yyyy'), anchor: 'left' },
+    { percent: toPercent(elEndDate), text: `EL ends ${format(elEndDate, 'MMM d, yyyy')}`, anchor: 'center' },
+  ];
+  if (deadline) {
+    labels.push({ percent: 100, text: `Deadline: ${format(deadline, 'MMM d, yyyy')}`, anchor: 'right' });
+  }
+
+  const anchorStyle = (anchor, percent) => {
+    if (anchor === 'left') return { left: `${percent}%`, transform: 'translateX(0%)' };
+    if (anchor === 'right') return { left: `${percent}%`, transform: 'translateX(-100%)' };
+    return { left: `${percent}%`, transform: 'translateX(-50%)' };
+  };
+
   return (
-    <div className="relative h-5 w-full">
-      {/* Bar with segments */}
-      <div className="absolute inset-0 rounded-full overflow-hidden bg-secondary">
-        {segments.map((seg, i) => (
+    <div className="w-full">
+      {/* Bar */}
+      <div className="relative h-5 w-full">
+        <div className="absolute inset-0 rounded-full overflow-hidden bg-secondary">
+          {segments.map((seg, i) => (
+            <div
+              key={i}
+              className={`absolute top-0 bottom-0 ${segmentColors[seg.type]} opacity-80`}
+              style={{ left: `${seg.start}%`, width: `${seg.end - seg.start}%` }}
+            />
+          ))}
+        </div>
+        {/* Today marker */}
+        {todayPercent >= 0 && todayPercent <= 100 && (
           <div
-            key={i}
-            className={`absolute top-0 bottom-0 ${segmentColors[seg.type]} opacity-80`}
-            style={{ left: `${seg.start}%`, width: `${seg.end - seg.start}%` }}
+            className="absolute top-0 bottom-0 w-0.5 bg-foreground z-10"
+            style={{ left: `${todayPercent}%` }}
+            title="Today"
           />
-        ))}
+        )}
       </div>
-      {/* Today marker — outside overflow-hidden so it isn't clipped */}
-      {todayPercent >= 0 && todayPercent <= 100 && (
-        <div
-          className="absolute top-0 bottom-0 w-0.5 bg-foreground z-10"
-          style={{ left: `${todayPercent}%` }}
-          title="Today"
-        />
-      )}
+
+      {/* Labels pinned to their exact percentage positions */}
+      <div className="relative h-4 w-full mt-0.5">
+        {labels.map((lbl, i) => (
+          <span
+            key={i}
+            className="absolute text-[9px] text-muted-foreground whitespace-nowrap"
+            style={anchorStyle(lbl.anchor, lbl.percent)}
+          >
+            {lbl.text}
+          </span>
+        ))}
+        {/* Today label pinned under the marker */}
+        {todayPercent > 5 && todayPercent < 95 && (
+          <span
+            className="absolute text-[9px] font-medium text-foreground whitespace-nowrap"
+            style={{ left: `${todayPercent}%`, transform: 'translateX(-50%)' }}
+          >
+            Today
+          </span>
+        )}
+      </div>
     </div>
   );
 }
